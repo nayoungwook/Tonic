@@ -32,7 +32,6 @@ protected:
 private:
 	Shader *shader_cache = nullptr;
 	bool shader_cache_is_ui = false;
-	bool shader_cache_pixel_perfect = false;
 	FrameBuffer *shader_cache_frame_buffer = nullptr;
 	FrameBuffer *frame_buffer_cache = nullptr;
 	FrameBuffer *batch_frame_buffer = nullptr;
@@ -41,10 +40,8 @@ private:
 	int texture_uniform_location = -1;
 	bool screen_frame_buffer_bound = false;
 	int view_projection_uniform_location = -1;
-	int sprite_pixel_perfect_uniform_location = -1;
 	int batch_slot = 0;
 	bool batch_is_ui = false;
-	bool batch_pixel_perfect = false;
 	int batch_blend_source = GL_SRC_ALPHA;
 	int batch_blend_destination = GL_ONE_MINUS_SRC_ALPHA;
 

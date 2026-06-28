@@ -28,206 +28,126 @@ bool Camera::is_dirty() {
 	return cached_position.x != position.x ||
 		cached_position.y != position.y ||
 		cached_zoom != zoom ||
-		cached_rotation != rotation ||
-		cached_pixel_rendering != pixel_rendering ||
-		cached_assets_pixels_per_unit != assets_pixels_per_unit;
+		cached_rotation != rotation;
+}
+
+const glm::vec2 &Camera::get_jitter_offset() const {
+	return jitter_offset;
+}
+
+glm::vec2 Camera::get_jitter_offset(float units_per_pixel) const {
+	units_per_pixel = std::max(0.0001f, units_per_pixel);
+	float snapped_x = std::floor(position.x / units_per_pixel) *
+		units_per_pixel;
+	float snapped_y = std::floor(position.y / units_per_pixel) *
+		units_per_pixel;
+
+	return glm::vec2((position.x - snapped_x) / units_per_pixel,
+		(position.y - snapped_y) / units_per_pixel);
 }
 
 void Camera::calculate_matrix() {
 	if (!is_dirty())
 		return;
 
-	float projection_width = static_cast<float>(width);
-	float projection_height = static_cast<float>(height);
-	Vector render_position = position;
-
-	if (pixel_rendering && pixel_perfect_enabled) {
-		projection_width =
-			get_pixel_buffer_width() * get_world_units_per_pixel();
-		projection_height =
-			get_pixel_buffer_height() * get_world_units_per_pixel();
-
-		render_position =
-			get_pixel_snapped_center(projection_width, projection_height);
-	}
+	float safe_zoom = std::max(0.01f, zoom);
+	float projection_width = static_cast<float>(width) / safe_zoom;
+	float projection_height = static_cast<float>(height) / safe_zoom;
 
 	projection = build_projection(projection_width, projection_height);
 
 	view = glm::mat4(1.0f);
-	view = glm::scale(view,
-		glm::vec3(zoom, zoom, 1.0f));
+
 	view = glm::rotate(view,
 		-rotation, glm::vec3(0.0f, 0.0f, 1.0f));
 	view = glm::translate(view,
-		glm::vec3(-render_position.x,
-			-render_position.y,
+		glm::vec3(-position.x,
+			-position.y,
 			0.0f));
-
 	view_projection = projection * view;
+
+	float snapped_x = std::floor(position.x);
+	float snapped_y = std::floor(position.y);
+
+	glm::mat4 pixel_perfect_view = glm::mat4(1.0f);
+	pixel_perfect_view = glm::rotate(pixel_perfect_view,
+		-rotation, glm::vec3(0.0f, 0.0f, 1.0f));
+	pixel_perfect_view = glm::translate(pixel_perfect_view,
+		glm::vec3(-snapped_x, -snapped_y, 0.0f));
+
+	this->jitter_offset = glm::vec2(position.x - snapped_x,
+		position.y - snapped_y);
+	pixel_perfect_view_projection = projection * pixel_perfect_view;
 
 	cached_position = position;
 	cached_zoom = zoom;
 	cached_rotation = rotation;
-	cached_pixel_rendering = pixel_rendering;
-	cached_assets_pixels_per_unit = assets_pixels_per_unit;
 }
+
+
 const int Camera::get_width() const { return width; }
 
 const int Camera::get_height() const { return height; }
+
+const int Camera::get_resolution_x() const { return width; }
+
+const int Camera::get_resolution_y() const { return height; }
 
 const int Camera::get_base_width() const { return base_width; }
 
 const int Camera::get_base_height() const { return base_height; }
 
 const glm::mat4 &Camera::get_view_projection() { return view_projection; }
+const glm::mat4 &Camera::get_pixel_perfect_view_projection() { return pixel_perfect_view_projection; }
+
+glm::mat4 Camera::get_pixel_perfect_view_projection(float units_per_pixel) {
+	if (is_dirty())
+		calculate_matrix();
+
+	units_per_pixel = std::max(0.0001f, units_per_pixel);
+	float snapped_x = std::floor(position.x / units_per_pixel) *
+		units_per_pixel;
+	float snapped_y = std::floor(position.y / units_per_pixel) *
+		units_per_pixel;
+
+	glm::mat4 pixel_perfect_view = glm::mat4(1.0f);
+	pixel_perfect_view = glm::rotate(pixel_perfect_view,
+		-rotation, glm::vec3(0.0f, 0.0f, 1.0f));
+	pixel_perfect_view = glm::translate(pixel_perfect_view,
+		glm::vec3(-snapped_x, -snapped_y, 0.0f));
+
+	return projection * pixel_perfect_view;
+}
+
+glm::mat4 Camera::get_pixel_perfect_view_projection(float units_per_pixel,
+	float buffer_width, float buffer_height) {
+	if (is_dirty())
+		calculate_matrix();
+
+	units_per_pixel = std::max(0.0001f, units_per_pixel);
+	buffer_width = std::max(1.0f, buffer_width);
+	buffer_height = std::max(1.0f, buffer_height);
+
+	float snapped_x = std::floor(position.x / units_per_pixel) *
+		units_per_pixel;
+	float snapped_y = std::floor(position.y / units_per_pixel) *
+		units_per_pixel;
+
+	glm::mat4 pixel_projection = build_projection(
+		buffer_width * units_per_pixel,
+		buffer_height * units_per_pixel);
+	glm::mat4 pixel_view = glm::mat4(1.0f);
+	pixel_view = glm::translate(pixel_view,
+		glm::vec3(-snapped_x, -snapped_y, 0.0f));
+
+	return pixel_projection * pixel_view;
+}
 
 const glm::mat4 &Camera::get_view() const { return view; }
 
 const glm::mat4 &Camera::get_projection() const { return projection; }
 
-glm::mat4 Camera::get_pixel_view_projection(float reference_width,
-	float reference_height, float assets_pixels_per_unit) const {
-	assets_pixels_per_unit = std::max(0.0001f, assets_pixels_per_unit);
-	float units_per_pixel = 1.0f / assets_pixels_per_unit;
-	int pixel_buffer_width = std::max(1, static_cast<int>(std::ceil(
-		reference_width * assets_pixels_per_unit))) + 1;
-	int pixel_buffer_height = std::max(1, static_cast<int>(std::ceil(
-		reference_height * assets_pixels_per_unit))) + 1;
-	float projection_width =
-		static_cast<float>(pixel_buffer_width) * units_per_pixel;
-	float projection_height =
-		static_cast<float>(pixel_buffer_height) * units_per_pixel;
-
-	float left = position.x - reference_width * 0.5f;
-	float bottom = position.y - reference_height * 0.5f;
-	float snapped_left = std::floor(left / units_per_pixel) *
-		units_per_pixel;
-	float snapped_bottom = std::floor(bottom / units_per_pixel) *
-		units_per_pixel;
-	Vector snapped_center(snapped_left + projection_width * 0.5f,
-		snapped_bottom + projection_height * 0.5f, position.z);
-
-	glm::mat4 pixel_projection =
-		build_projection(projection_width, projection_height);
-	glm::mat4 pixel_view(1.0f);
-	pixel_view = glm::scale(pixel_view, glm::vec3(zoom, zoom, 1.0f));
-	pixel_view = glm::rotate(pixel_view, -rotation,
-		glm::vec3(0.0f, 0.0f, 1.0f));
-	pixel_view = glm::translate(pixel_view,
-		glm::vec3(-snapped_center.x, -snapped_center.y, 0.0f));
-
-	return pixel_projection * pixel_view;
-}
-
-void Camera::configure_pixel_perfect(float reference_width,
-	float reference_height, float assets_pixels_per_unit) {
-	if (reference_width <= 0.0f || reference_height <= 0.0f)
-		return;
-
-	width = std::max(1, static_cast<int>(std::round(
-		reference_width / std::max(0.0001f, assets_pixels_per_unit))));
-	height = std::max(1, static_cast<int>(std::round(
-		reference_height / std::max(0.0001f, assets_pixels_per_unit))));
-	set_assets_pixels_per_unit(assets_pixels_per_unit);
-	set_pixel_perfect_enabled(true);
-	cached_zoom = -1.0f;
-}
-
-void Camera::configure_pixel_perfect_for_sprite(int sprite_pixel_size,
-	float world_size) {
-	if (sprite_pixel_size <= 0 || world_size <= 0.0f)
-		return;
-
-	set_assets_pixels_per_unit(sprite_pixel_size / world_size);
-	set_pixel_perfect_enabled(true);
-}
-
-void Camera::set_pixel_perfect_enabled(bool enabled) {
-	if (pixel_perfect_enabled == enabled)
-		return;
-	pixel_perfect_enabled = enabled;
-	cached_zoom = -1.0f;
-}
-
-bool Camera::is_pixel_perfect_enabled() const {
-	return pixel_perfect_enabled;
-}
-
-void Camera::set_assets_pixels_per_unit(float value) {
-	assets_pixels_per_unit = std::max(0.0001f, value);
-	cached_zoom = -1.0f;
-}
-
-float Camera::get_assets_pixels_per_unit() const {
-	return assets_pixels_per_unit;
-}
-
-float Camera::get_world_units_per_pixel() const {
-	return 1.0f / assets_pixels_per_unit;
-}
-
-int Camera::get_pixel_view_width() const {
-	return std::max(1, static_cast<int>(std::ceil(
-		static_cast<float>(width) * assets_pixels_per_unit)));
-}
-
-int Camera::get_pixel_view_height() const {
-	return std::max(1, static_cast<int>(std::ceil(
-		static_cast<float>(height) * assets_pixels_per_unit)));
-}
-
-int Camera::get_pixel_buffer_width() const {
-	return get_pixel_view_width() + 1;
-}
-
-int Camera::get_pixel_buffer_height() const {
-	return get_pixel_view_height() + 1;
-}
-
-Vector Camera::get_pixel_snapped_center(float projection_width,
-	float projection_height) const {
-	float units_per_pixel = get_world_units_per_pixel();
-
-	float left = position.x - width * 0.5f;
-	float bottom = position.y - height * 0.5f;
-
-	float snapped_left = std::floor(left / units_per_pixel) *
-		units_per_pixel;
-	float snapped_bottom = std::floor(bottom / units_per_pixel) *
-		units_per_pixel;
-
-	return Vector(snapped_left + projection_width * 0.5f,
-		snapped_bottom + projection_height * 0.5f, position.z);
-}
-
-glm::vec4 Camera::get_pixel_source_uv() const {
-	float units_per_pixel = get_world_units_per_pixel();
-	float left = position.x - width * 0.5f;
-	float bottom = position.y - height * 0.5f;
-	float snapped_left = std::floor(left / units_per_pixel) *
-		units_per_pixel;
-	float snapped_bottom = std::floor(bottom / units_per_pixel) *
-		units_per_pixel;
-	float frac_x = (left - snapped_left) / units_per_pixel;
-	float frac_y = (bottom - snapped_bottom) / units_per_pixel;
-
-	float buffer_width = static_cast<float>(get_pixel_buffer_width());
-	float buffer_height = static_cast<float>(get_pixel_buffer_height());
-	float view_width = static_cast<float>(get_pixel_view_width());
-	float view_height = static_cast<float>(get_pixel_view_height());
-
-	return glm::vec4(frac_x / buffer_width, frac_y / buffer_height,
-		(frac_x + view_width) / buffer_width,
-		(frac_y + view_height) / buffer_height);
-}
-
-void Camera::begin_pixel_perfect_render() {
-	pixel_rendering = true;
-	cached_zoom = -1.0f;
-}
-
-void Camera::end_pixel_perfect_render() {
-	pixel_rendering = false;
-	cached_zoom = -1.0f;
-	calculate_matrix();
+glm::mat4 Camera::get_screen_projection() const {
+	return build_projection(static_cast<float>(width),
+		static_cast<float>(height));
 }

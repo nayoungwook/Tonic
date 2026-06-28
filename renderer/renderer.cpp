@@ -167,14 +167,6 @@ void Renderer::render_framebuffer_part(FrameBuffer *source,
 	RenderContext rc = gen_framebuffer_render_context(engine->get_frame_buffer(),
 		source, position, rotation, width, height, color, is_ui);
 	rc.uv = uv;
-	if (source->is_pixel_perfect() &&
-		std::abs(uv.x) < 0.0001f &&
-		std::abs(uv.y) < 0.0001f &&
-		std::abs(uv.z - 1.0f) < 0.0001f &&
-		std::abs(uv.w - 1.0f) < 0.0001f) {
-		rc.uv = source->get_pixel_source_uv(camera->position.x,
-			camera->position.y);
-	}
 	engine->get_current_scene()->add_render_context(rc);
 }
 
@@ -360,6 +352,9 @@ void Renderer::draw_raw_texture(unsigned texture_id, const RenderContext &rc,
 	const glm::mat4 &vp) {
 	if (texture_id == 0)
 		return;
+
+	bool pixel_perfect = rc.is_pixel_perfect_frame_buffer;
+
 	quad_shader->bind();
 	quad_shader->upload_mat4("uViewProjection", vp);
 	quad_shader->upload_vec4("uTransform",
@@ -368,6 +363,26 @@ void Renderer::draw_raw_texture(unsigned texture_id, const RenderContext &rc,
 	quad_shader->upload_float("uRotation", rc.rotation);
 	quad_shader->upload_vec4("uColor", rc.color);
 	quad_shader->upload_int("uTexture", 0);
+	quad_shader->upload_int("uPixelPerfect", pixel_perfect ? 1 : 0);
+
+	if (pixel_perfect) {
+		float pixel_per_unit = std::max(0.0001f, rc.pixel_per_unit);
+
+		glm::vec2 output_size(
+			rc.pixel_output_width > 0.0f ? rc.pixel_output_width : rc.width,
+			rc.pixel_output_height > 0.0f ? rc.pixel_output_height : rc.height);
+
+		glm::vec2 source_size(
+			rc.source_width > 0.0f ? rc.source_width : output_size.x,
+			rc.source_height > 0.0f ? rc.source_height : output_size.y);
+
+		quad_shader->upload_vec2("uOutputSize", output_size);
+		quad_shader->upload_vec2("uSourceSize", source_size);
+		quad_shader->upload_vec2("uCameraOffset",
+			camera->get_jitter_offset(pixel_per_unit));
+		quad_shader->upload_float("uCameraZoom", camera->zoom);
+		quad_shader->upload_float("uCameraRotation", camera->rotation);
+	}
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture_id);

@@ -16,7 +16,7 @@ private:
 	FrameBuffer *ui_frame_buffer = nullptr;
 	FrameBuffer *game_frame_buffer = nullptr;
 
-	const int MS = 100;
+	const int MS = 500;
 	float rotation = 0;
 	float zoom = 1;
 	float camera_move_speed = 14.5f;
@@ -36,9 +36,9 @@ public:
 
 		camera_target_position = Vector(0, 0);
 
-		ui_frame_buffer = new FrameBuffer(false);
+		ui_frame_buffer = new FrameBuffer();
 		game_frame_buffer = new FrameBuffer(true);
-		game_frame_buffer->configure_pixel_perfect_for_sprite(16, MS);
+		game_frame_buffer->set_pixel_per_unit(32, MS);
 	}
 
 	void update() {
@@ -57,10 +57,10 @@ public:
 			camera_target_position += Vector(1, 0) * camera_move_speed;
 		}
 
-		zoom += 0.2f * input->get_mouse_wheel_y();
+		zoom += 0.05f * input->get_mouse_wheel_y();
 
-		camera->zoom += (zoom - camera->zoom) / 10;
-		camera->position += (camera_target_position - camera->position) / 10;
+		camera->zoom += (zoom - camera->zoom) / 5;
+		camera->position += (camera_target_position - camera->position) / 5;
 	}
 
 	void render() {
@@ -74,6 +74,7 @@ public:
 		this->engine->set_frame_buffer(game_frame_buffer);
 		renderer->clear(0.05f, 0.05f, 0.07f, 1.0f);
 		renderer->set_color(glm::vec4(1, 1, 1, 1));
+
 		int width = 200, height = 200;
 		for (int i = 0; i < height; i++) {
 			for (int j = 0; j < width; j++) {

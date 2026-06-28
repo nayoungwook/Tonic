@@ -32,7 +32,7 @@ void Engine::init_engine(const std::string &title, int width, int height) {
 	display->update_viewport(width, height);
 	Input *input = new Input();
 
-	default_frame_buffer = new FrameBuffer();
+	default_frame_buffer = new FrameBuffer(false);
 
 	ShaderManager *shader_manager = new ShaderManager();
 
@@ -133,40 +133,15 @@ void Engine::start() {
 		}
 
 		if (current_scene != nullptr) {
-			bool pixel_perfect_screen =
-				display->is_pixel_perfect_screen() &&
-				camera->is_pixel_perfect_enabled();
-
 			FrameBuffer *previous_frame_buffer = current_frame_buffer;
 
-			if (pixel_perfect_screen) {
-				// if pixel perfect screen enabled, we have to adjust screen resolution lower.
-				int buffer_width =
-					camera->get_pixel_buffer_width();
-				int buffer_height =
-					camera->get_pixel_buffer_height();
-
-				default_frame_buffer->set_pixel_perfect(true);
-				default_frame_buffer->resize(buffer_width, buffer_height);
-				set_frame_buffer(default_frame_buffer);
-				camera->begin_pixel_perfect_render();
-				default_frame_buffer->bind();
-			}
-			else {
-				// Otherwise, restore the framebuffer to the camera resolution.
-				default_frame_buffer->set_pixel_perfect(false);
-				FrameBuffer::resize_camera_sized_framebuffers();
-				set_frame_buffer(default_frame_buffer);
-				default_frame_buffer->bind();
-			}
+			set_frame_buffer(default_frame_buffer);
+			FrameBuffer::resize_camera_sized_framebuffers(camera);
+			default_frame_buffer->bind();
 
 			// render and flush.
 			current_scene->render();
 			current_scene->flush_render_context();
-
-			if (pixel_perfect_screen) {
-				camera->end_pixel_perfect_render();
-			}
 
 			// Ready to render in fbo 0
 			FrameBuffer::bind_screen_framebuffer();
@@ -183,11 +158,6 @@ void Engine::start() {
 					camera->get_height(),
 					glm::vec4(1.0f),
 					true);
-
-			if (pixel_perfect_screen) {
-				// to prevent jittering, we have to offset uv little bit.
-				present_context.uv = camera->get_pixel_source_uv();
-			}
 
 			// flush
 			current_scene->add_render_context(present_context);

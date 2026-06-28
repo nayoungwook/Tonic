@@ -30,18 +30,23 @@ public:
 	Mesh *mesh;
 	Shader *shader;
 	Vector position;
-	
+
 	glm::vec4 color;
 	glm::vec4 uv;
 
 	int slot;
 	unsigned raw_texture;
 	float width, height;
+	float source_width, source_height;
+	float pixel_output_width, pixel_output_height;
 	float rotation;
 	int blend_source;
 	int blend_destination;
 	bool is_ui;
 	ShapeType shape_type;
+
+	bool is_pixel_perfect_frame_buffer;
+	float pixel_per_unit;
 };
 
 RenderContext gen_render_context(FrameBuffer *frame_buffer, Texture *texture,

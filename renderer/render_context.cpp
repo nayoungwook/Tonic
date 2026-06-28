@@ -23,6 +23,10 @@ RenderContext gen_render_context(FrameBuffer *frame_buffer, Texture *texture,
 	result.rotation = rotation;
 	result.width = width;
 	result.height = height;
+	result.source_width = 0.0f;
+	result.source_height = 0.0f;
+	result.pixel_output_width = width;
+	result.pixel_output_height = height;
 	result.position.z = position.z;
 	result.blend_source = GL_SRC_ALPHA;
 	result.blend_destination = GL_ONE_MINUS_SRC_ALPHA;
@@ -30,6 +34,8 @@ RenderContext gen_render_context(FrameBuffer *frame_buffer, Texture *texture,
 	result.raw_texture = 0;
 	result.is_ui = is_ui;
 	result.shape_type = SHAPE_RECT;
+	result.is_pixel_perfect_frame_buffer = false;
+	result.pixel_per_unit = 1.0f;
 
 	return result;
 }
@@ -41,6 +47,12 @@ RenderContext gen_clear_render_context(FrameBuffer *frame_buffer) {
 	result.frame_buffer = frame_buffer;
 	result.blend_source = GL_SRC_ALPHA;
 	result.blend_destination = GL_ONE_MINUS_SRC_ALPHA;
+	result.is_pixel_perfect_frame_buffer = false;
+	result.pixel_per_unit = 1.0f;
+	result.source_width = 0.0f;
+	result.source_height = 0.0f;
+	result.pixel_output_width = 0.0f;
+	result.pixel_output_height = 0.0f;
 
 	return result;
 }
@@ -59,12 +71,18 @@ RenderContext gen_shape_render_context(FrameBuffer *frame_buffer,
 	result.rotation = rotation;
 	result.width = width;
 	result.height = height;
+	result.source_width = 0.0f;
+	result.source_height = 0.0f;
+	result.pixel_output_width = width;
+	result.pixel_output_height = height;
 	result.color = color;
 	result.position.z = position.z;
 	result.blend_source = GL_SRC_ALPHA;
 	result.blend_destination = GL_ONE_MINUS_SRC_ALPHA;
 	result.is_ui = is_ui;
 	result.shape_type = shape_type;
+	result.is_pixel_perfect_frame_buffer = false;
+	result.pixel_per_unit = 1.0f;
 
 	return result;
 }
@@ -84,11 +102,17 @@ RenderContext gen_mesh_render_context(FrameBuffer *frame_buffer, Mesh *mesh,
 	result.rotation = rotation;
 	result.width = width;
 	result.height = height;
+	result.source_width = 0.0f;
+	result.source_height = 0.0f;
+	result.pixel_output_width = width;
+	result.pixel_output_height = height;
 	result.color = color;
 	result.position.z = position.z;
 	result.blend_source = GL_SRC_ALPHA;
 	result.blend_destination = GL_ONE_MINUS_SRC_ALPHA;
 	result.is_ui = is_ui;
+	result.is_pixel_perfect_frame_buffer = false;
+	result.pixel_per_unit = 1.0f;
 
 	return result;
 }
@@ -108,6 +132,18 @@ RenderContext gen_framebuffer_render_context(FrameBuffer *target_frame_buffer,
 	result.rotation = rotation;
 	result.width = width;
 	result.height = height;
+	result.source_width =
+		source_frame_buffer == nullptr ? 0.0f :
+		static_cast<float>(source_frame_buffer->get_width());
+	result.source_height =
+		source_frame_buffer == nullptr ? 0.0f :
+		static_cast<float>(source_frame_buffer->get_height());
+	result.pixel_output_width =
+		source_frame_buffer == nullptr ? width :
+		static_cast<float>(source_frame_buffer->get_pixel_view_width());
+	result.pixel_output_height =
+		source_frame_buffer == nullptr ? height :
+		static_cast<float>(source_frame_buffer->get_pixel_view_height());
 	result.color = color;
 	result.position.z = position.z;
 	result.blend_source = GL_SRC_ALPHA;
@@ -116,6 +152,11 @@ RenderContext gen_framebuffer_render_context(FrameBuffer *target_frame_buffer,
 	result.uv = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
 	result.raw_texture =
 		source_frame_buffer == nullptr ? 0 : source_frame_buffer->get_color_texture();
+
+	result.is_pixel_perfect_frame_buffer =
+		source_frame_buffer != nullptr && source_frame_buffer->is_pixel_perfect();
+	result.pixel_per_unit =
+		source_frame_buffer == nullptr ? 1.0f : source_frame_buffer->get_pixel_per_unit();
 
 	return result;
 }

@@ -16,13 +16,6 @@ class Display {
 
         void update_viewport(int win_width, int win_height);
         void apply_screen_viewport();
-        void set_pixel_perfect_screen(bool enabled);
-        bool is_pixel_perfect_screen() const;
-        void configure_pixel_perfect(int reference_width,
-                int reference_height, int assets_pixels_per_unit);
-        void configure_pixel_perfect_for_sprite(int sprite_pixel_size,
-                float world_size);
-        void set_pixel_snapping(bool enabled);
         void set_fullscreen();
         void set_windowed(int width, int height);
         void start();
@@ -43,6 +36,5 @@ class Display {
         int viewport_y = 0;
         int viewport_width = 0;
         int viewport_height = 0;
-        bool pixel_perfect_screen = false;
         Camera *camera = nullptr;
 };

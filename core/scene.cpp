@@ -153,14 +153,12 @@ void Scene::flush_render_context() {
 	// cache for shaders and framebuffer
 	shader_cache = nullptr;
 	shader_cache_is_ui = false;
-	shader_cache_pixel_perfect = false;
 	shader_cache_frame_buffer = nullptr;
 	frame_buffer_cache = nullptr;
 
 	texture_uniform_location = -1;
 	screen_frame_buffer_bound = false;
 	view_projection_uniform_location = -1;
-	sprite_pixel_perfect_uniform_location = -1;
 
 	// batch data
 	batch_frame_buffer = nullptr;
@@ -168,50 +166,51 @@ void Scene::flush_render_context() {
 	batch_shader = nullptr;
 	batch_slot = 0;
 	batch_is_ui = false;
-	batch_pixel_perfect = false;
 	batch_blend_source = GL_SRC_ALPHA;
 	batch_blend_destination = GL_ONE_MINUS_SRC_ALPHA;
 
 	camera->calculate_matrix();
 
+	bool pixel_perfect_cache = false;
 	bool has_view_projection_cache = false;
 	FrameBuffer *view_projection_cache_frame_buffer = nullptr;
 	bool view_projection_cache_is_ui = false;
-	bool view_projection_cache_pixel_perfect = false;
 	glm::mat4 cached_view_projection(1.0f);
 
 	for (const RenderContext &rc : render_context_queue) {
 
 		Shader *shader = rc.shader;
 		FrameBuffer *frame_buffer = rc.frame_buffer;
-		bool object_pixel_perfect =
-			frame_buffer != nullptr && frame_buffer->is_pixel_perfect();
+
+		bool pixel_perfect = (frame_buffer != nullptr && frame_buffer->is_pixel_perfect());
 
 		if (!has_view_projection_cache ||
 			view_projection_cache_frame_buffer != frame_buffer ||
-			view_projection_cache_is_ui != rc.is_ui ||
-			view_projection_cache_pixel_perfect != object_pixel_perfect) {
-			// UI uses screen-space projection. World objects rendered into a
-			// pixel-perfect framebuffer use that framebuffer's pixel grid.
-			cached_view_projection = rc.is_ui
-				? camera->get_projection()
-				: camera->get_view_projection();
-			if (!rc.is_ui && object_pixel_perfect) {
+			pixel_perfect != pixel_perfect_cache ||
+			view_projection_cache_is_ui != rc.is_ui) {
+
+			// update camera view_projection
+			if (rc.is_ui) {
+				cached_view_projection = camera->get_screen_projection();
+			}
+			else {
+				cached_view_projection = camera->get_view_projection();
+			}
+
+			if (pixel_perfect) {
 				cached_view_projection =
-					camera->get_pixel_view_projection(
-						static_cast<float>(
-							frame_buffer->get_reference_width()),
-						static_cast<float>(
-							frame_buffer->get_reference_height()),
-						frame_buffer->get_assets_pixels_per_unit());
+					camera->get_pixel_perfect_view_projection(
+						frame_buffer->get_pixel_per_unit(),
+						static_cast<float>(frame_buffer->get_width()),
+						static_cast<float>(frame_buffer->get_height()));
 			}
 
 			has_view_projection_cache = true;
 			view_projection_cache_frame_buffer = frame_buffer;
 			view_projection_cache_is_ui = rc.is_ui;
-			view_projection_cache_pixel_perfect = object_pixel_perfect;
+			pixel_perfect_cache = pixel_perfect;
 		}
-		
+
 		if (rc.render_type == RT_CLEAR) {
 			this->rt_clear(renderer);
 			continue;
@@ -247,7 +246,6 @@ void Scene::flush_render_context() {
 
 		// update shader
 		if (shader_cache != shader || shader_cache_is_ui != rc.is_ui ||
-			shader_cache_pixel_perfect != object_pixel_perfect ||
 			shader_cache_frame_buffer != frame_buffer) {
 			flush_batch(renderer, instance_batch, batch_texture,
 				batch_slot);
@@ -256,16 +254,9 @@ void Scene::flush_render_context() {
 				shader->get_uniform_location("uTexture");
 			view_projection_uniform_location =
 				shader->get_uniform_location("uViewProjection");
-			sprite_pixel_perfect_uniform_location =
-				shader->get_uniform_location("uSpritePixelPerfect");
 
 			if (texture_uniform_location != -1) {
 				glUniform1i(texture_uniform_location, 0);
-			}
-
-			if (sprite_pixel_perfect_uniform_location != -1) {
-				glUniform1i(sprite_pixel_perfect_uniform_location,
-					object_pixel_perfect ? 1 : 0);
 			}
 
 			if (view_projection_uniform_location != -1) {
@@ -274,10 +265,10 @@ void Scene::flush_render_context() {
 					GL_FALSE,
 					glm::value_ptr(cached_view_projection));
 			}
+
 			renderer->set_shader(shader);
 			shader_cache = shader;
 			shader_cache_is_ui = rc.is_ui;
-			shader_cache_pixel_perfect = object_pixel_perfect;
 			shader_cache_frame_buffer = frame_buffer;
 		}
 
@@ -288,7 +279,6 @@ void Scene::flush_render_context() {
 				batch_frame_buffer != frame_buffer ||
 				batch_slot != rc.slot ||
 				batch_is_ui != rc.is_ui ||
-				batch_pixel_perfect != object_pixel_perfect ||
 				batch_blend_source != rc.blend_source ||
 				batch_blend_destination != rc.blend_destination;
 
@@ -302,7 +292,6 @@ void Scene::flush_render_context() {
 				batch_frame_buffer = frame_buffer;
 				batch_slot = rc.slot;
 				batch_is_ui = rc.is_ui;
-				batch_pixel_perfect = object_pixel_perfect;
 				batch_blend_source = rc.blend_source;
 				batch_blend_destination = rc.blend_destination;
 				glBlendFunc(batch_blend_source,
