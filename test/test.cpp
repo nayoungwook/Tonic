@@ -18,10 +18,11 @@ private:
 
 	Sound *music = nullptr;
 
-	const int MS = 500;
+	const int MS = 60;
 	float rotation = 0;
 	float zoom = 1;
-	float camera_move_speed = 100.5f;
+	float camera_move_speed = 10.5f;
+	float camera_target_rotation = 0.0f;
 
 public:
 	Game(Engine *engine) : Scene(engine) {}
@@ -36,9 +37,6 @@ public:
 		camera = this->engine->get_camera();
 		font = new TTFont("resources/GalmuriMono11.ttf", 64);
 
-		music = new Sound("resources/ChickenGame.mp3");
-		music->play();
-
 		camera_target_position = Vector(0, 0);
 
 		ui_framebuffer = new FrameBuffer();
@@ -47,7 +45,7 @@ public:
 	}
 
 	void update() {
-		rotation += 0.01f;
+		//rotation += 0.01f;
 
 		if (input->is_key_down(SDL_SCANCODE_W)) {
 			camera_target_position += Vector(0, 1) * camera_move_speed;
@@ -62,12 +60,21 @@ public:
 			camera_target_position += Vector(1, 0) * camera_move_speed;
 		}
 
+		if (input->is_key_down(SDL_SCANCODE_Q)) {
+			camera_target_rotation -= 0.1f;
+		}
+		if (input->is_key_down(SDL_SCANCODE_E)) {
+			camera_target_rotation += 0.1f;
+		}
+
+		this->camera->rotation += (camera_target_rotation - this->camera->rotation) * 0.1f;
+
 		if (input->is_key_pressed(SDL_SCANCODE_F)) {
 			this->engine->get_display()->set_fullscreen();
 			//this->engine->get_display()->set_windowed(1920, 1080);
 		}
 
-		zoom += 0.05f * input->get_mouse_wheel_y();
+		zoom += 0.1f * input->get_mouse_wheel_y();
 
 		camera->zoom += (zoom - camera->zoom) / 5;
 		camera->position += (camera_target_position - camera->position) / 5;

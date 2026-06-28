@@ -1,6 +1,7 @@
 #include "engine/mathf.h"
 #include "engine/camera.h"
 
+#include <algorithm>
 #include <cmath>
 
 Vector::Vector(float x, float y, float z) : x(x), y(y), z(z) {};
@@ -106,6 +107,33 @@ float Vector::dist(const Vector other) const {
 }
 
 Vector world_to_screen(Camera *camera, const Vector &world_pos) {
+	if (camera->is_pixel_perfect_transform_enabled()) {
+		float units_per_pixel =
+			std::max(0.0001f, camera->get_pixel_perfect_units_per_pixel());
+		float render_width =
+			std::max(1.0f, camera->get_pixel_perfect_render_width());
+		float render_height =
+			std::max(1.0f, camera->get_pixel_perfect_render_height());
+		float camera_width = std::max(1.0f,
+			static_cast<float>(camera->get_width()));
+		float camera_height = std::max(1.0f,
+			static_cast<float>(camera->get_height()));
+
+		float source_x = (world_pos.x - camera->position.x) /
+			units_per_pixel;
+		float source_y = (world_pos.y - camera->position.y) /
+			units_per_pixel;
+		float cosine = std::cos(camera->rotation);
+		float sine = std::sin(camera->rotation);
+		float zoom = camera->zoom;
+
+		float output_x = zoom * (cosine * source_x + sine * source_y);
+		float output_y = zoom * (-sine * source_x + cosine * source_y);
+
+		return Vector(output_x * camera_width / render_width,
+			output_y * camera_height / render_height, world_pos.z);
+	}
+
         glm::vec4 clip = camera->get_view_projection() *
                          glm::vec4(world_pos.x, world_pos.y, 0.0f, 1.0f);
 
@@ -116,10 +144,39 @@ Vector world_to_screen(Camera *camera, const Vector &world_pos) {
         screen.x = ndc.x * (camera->get_width() * 0.5f);
         screen.y = ndc.y * (camera->get_height() * 0.5f);
 
+        screen.z = world_pos.z;
         return screen;
 }
 
 Vector screen_to_world(Camera *camera, const Vector &screen_pos) {
+	if (camera->is_pixel_perfect_transform_enabled()) {
+		float units_per_pixel =
+			std::max(0.0001f, camera->get_pixel_perfect_units_per_pixel());
+		float render_width =
+			std::max(1.0f, camera->get_pixel_perfect_render_width());
+		float render_height =
+			std::max(1.0f, camera->get_pixel_perfect_render_height());
+		float camera_width = std::max(1.0f,
+			static_cast<float>(camera->get_width()));
+		float camera_height = std::max(1.0f,
+			static_cast<float>(camera->get_height()));
+		float output_x = screen_pos.x * render_width / camera_width;
+		float output_y = screen_pos.y * render_height / camera_height;
+		float zoom = camera->zoom;
+
+		if (std::abs(zoom) < 0.0001f)
+			zoom = zoom < 0.0f ? -0.0001f : 0.0001f;
+
+		float cosine = std::cos(camera->rotation);
+		float sine = std::sin(camera->rotation);
+		float source_x = (cosine * output_x - sine * output_y) / zoom;
+		float source_y = (sine * output_x + cosine * output_y) / zoom;
+
+		return Vector(camera->position.x + source_x * units_per_pixel,
+			camera->position.y + source_y * units_per_pixel,
+			screen_pos.z);
+	}
+
         glm::vec2 ndc;
 
         ndc.x = screen_pos.x / (camera->get_width() * 0.5f);

@@ -58,20 +58,18 @@ void Camera::calculate_matrix() {
 
 	view = glm::mat4(1.0f);
 
-	view = glm::rotate(view,
-		-rotation, glm::vec3(0.0f, 0.0f, 1.0f));
 	view = glm::translate(view,
 		glm::vec3(-position.x,
 			-position.y,
 			0.0f));
+	view = glm::rotate(view,
+		-rotation, glm::vec3(0.0f, 0.0f, 1.0f));
 	view_projection = projection * view;
 
 	float snapped_x = std::floor(position.x);
 	float snapped_y = std::floor(position.y);
 
 	glm::mat4 pixel_perfect_view = glm::mat4(1.0f);
-	pixel_perfect_view = glm::rotate(pixel_perfect_view,
-		-rotation, glm::vec3(0.0f, 0.0f, 1.0f));
 	pixel_perfect_view = glm::translate(pixel_perfect_view,
 		glm::vec3(-snapped_x, -snapped_y, 0.0f));
 
@@ -96,6 +94,34 @@ const int Camera::get_resolution_y() const { return height; }
 const int Camera::get_base_width() const { return base_width; }
 
 const int Camera::get_base_height() const { return base_height; }
+
+bool Camera::is_pixel_perfect_transform_enabled() const {
+	return pixel_perfect_transform_enabled;
+}
+
+float Camera::get_pixel_perfect_units_per_pixel() const {
+	return pixel_perfect_units_per_pixel;
+}
+
+float Camera::get_pixel_perfect_render_width() const {
+	return pixel_perfect_render_width > 0.0f ?
+		pixel_perfect_render_width :
+		static_cast<float>(width);
+}
+
+float Camera::get_pixel_perfect_render_height() const {
+	return pixel_perfect_render_height > 0.0f ?
+		pixel_perfect_render_height :
+		static_cast<float>(height);
+}
+
+void Camera::configure_pixel_perfect_transform(bool enabled,
+	float units_per_pixel, float render_width, float render_height) {
+	pixel_perfect_transform_enabled = enabled;
+	pixel_perfect_units_per_pixel = std::max(0.0001f, units_per_pixel);
+	pixel_perfect_render_width = std::max(1.0f, render_width);
+	pixel_perfect_render_height = std::max(1.0f, render_height);
+}
 
 const glm::mat4 &Camera::get_view_projection() { return view_projection; }
 const glm::mat4 &Camera::get_pixel_perfect_view_projection() { return pixel_perfect_view_projection; }

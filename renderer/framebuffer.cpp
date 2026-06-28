@@ -275,18 +275,14 @@ void FrameBuffer::update_resolution_from_mode(Camera *camera) {
 
 	float zoom = camera == nullptr ? 1.0f : std::max(0.01f,
 		std::abs(camera->zoom));
-	float rotation = camera == nullptr ? 0.0f : camera->rotation;
-	float cosine = std::abs(std::cos(rotation));
-	float sine = std::abs(std::sin(rotation));
-	double visible_width =
-		(cosine * pixel_view_width + sine * pixel_view_height) / zoom;
-	double visible_height =
-		(sine * pixel_view_width + cosine * pixel_view_height) / zoom;
+	double visible_diameter =
+		std::hypot(static_cast<double>(pixel_view_width),
+			static_cast<double>(pixel_view_height)) / zoom;
 
 	width = std::min(max_size, std::max(pixel_view_width + 2,
-		ceil_to_clamped_size(visible_width + 2.0, max_size)));
+		ceil_to_clamped_size(visible_diameter + 2.0, max_size)));
 	height = std::min(max_size, std::max(pixel_view_height + 2,
-		ceil_to_clamped_size(visible_height + 2.0, max_size)));
+		ceil_to_clamped_size(visible_diameter + 2.0, max_size)));
 }
 
 void FrameBuffer::register_dynamic() {
@@ -311,12 +307,21 @@ void FrameBuffer::resize_camera_sized_framebuffers() {
 }
 
 void FrameBuffer::resize_camera_sized_framebuffers(Camera *camera) {
+	if (camera != nullptr)
+		camera->configure_pixel_perfect_transform(false);
+
 	for (FrameBuffer *framebuffer : dynamic_framebuffers) {
 		if (framebuffer == nullptr)
 			continue;
 		int old_width = framebuffer->width;
 		int old_height = framebuffer->height;
 		framebuffer->update_resolution_from_mode(camera);
+		if (camera != nullptr && framebuffer->is_pixel_perfect()) {
+			camera->configure_pixel_perfect_transform(true,
+				framebuffer->get_pixel_per_unit(),
+				static_cast<float>(framebuffer->get_pixel_view_width()),
+				static_cast<float>(framebuffer->get_pixel_view_height()));
+		}
 		if (old_width != framebuffer->width ||
 			old_height != framebuffer->height) {
 			framebuffer->create(framebuffer->width,

@@ -106,6 +106,7 @@ if(MSVC)
 
     target_compile_options(${GAME_NAME} PRIVATE
         /EHsc
+        /utf-8
         $<$<CONFIG:Release>:/O2 /Oi /Ot /GL>
     )
 

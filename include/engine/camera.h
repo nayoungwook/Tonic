@@ -31,8 +31,15 @@ public:
 	const int get_resolution_y() const;
 	const int get_base_width() const;
 	const int get_base_height() const;
+	bool is_pixel_perfect_transform_enabled() const;
+	float get_pixel_perfect_units_per_pixel() const;
+	float get_pixel_perfect_render_width() const;
+	float get_pixel_perfect_render_height() const;
 
 	void calculate_matrix();
+	void configure_pixel_perfect_transform(bool enabled,
+		float units_per_pixel = 1.0f, float render_width = 0.0f,
+		float render_height = 0.0f);
 
 	bool is_dirty();
 
@@ -53,4 +60,9 @@ private:
 
 	int width, height;
 	int base_width, base_height;
+
+	bool pixel_perfect_transform_enabled = false;
+	float pixel_perfect_units_per_pixel = 1.0f;
+	float pixel_perfect_render_width = 0.0f;
+	float pixel_perfect_render_height = 0.0f;
 };
