@@ -27,7 +27,6 @@ RenderContext gen_render_context(FrameBuffer *frame_buffer, Texture *texture,
 	result.source_height = 0.0f;
 	result.pixel_output_width = width;
 	result.pixel_output_height = height;
-	result.position.z = position.z;
 	result.blend_source = GL_SRC_ALPHA;
 	result.blend_destination = GL_ONE_MINUS_SRC_ALPHA;
 	result.slot = slot;
@@ -76,7 +75,6 @@ RenderContext gen_shape_render_context(FrameBuffer *frame_buffer,
 	result.pixel_output_width = width;
 	result.pixel_output_height = height;
 	result.color = color;
-	result.position.z = position.z;
 	result.blend_source = GL_SRC_ALPHA;
 	result.blend_destination = GL_ONE_MINUS_SRC_ALPHA;
 	result.is_ui = is_ui;
@@ -107,7 +105,6 @@ RenderContext gen_mesh_render_context(FrameBuffer *frame_buffer, Mesh *mesh,
 	result.pixel_output_width = width;
 	result.pixel_output_height = height;
 	result.color = color;
-	result.position.z = position.z;
 	result.blend_source = GL_SRC_ALPHA;
 	result.blend_destination = GL_ONE_MINUS_SRC_ALPHA;
 	result.is_ui = is_ui;
@@ -145,7 +142,6 @@ RenderContext gen_framebuffer_render_context(FrameBuffer *target_frame_buffer,
 		source_frame_buffer == nullptr ? height :
 		static_cast<float>(source_frame_buffer->get_pixel_view_height());
 	result.color = color;
-	result.position.z = position.z;
 	result.blend_source = GL_SRC_ALPHA;
 	result.blend_destination = GL_ONE_MINUS_SRC_ALPHA;
 	result.is_ui = is_ui;

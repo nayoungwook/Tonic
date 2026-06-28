@@ -19,7 +19,7 @@ private:
 	const int MS = 500;
 	float rotation = 0;
 	float zoom = 1;
-	float camera_move_speed = 14.5f;
+	float camera_move_speed = 100.5f;
 
 public:
 	Game(Engine *engine) : Scene(engine) {}
@@ -71,14 +71,21 @@ public:
 		renderer->set_color(glm::vec4(1, 1, 0, 1));
 		renderer->render_ui_font(font, "this is for test.", Vector(0, 0, 1), rotation);
 
+
 		this->engine->set_frame_buffer(game_frame_buffer);
 		renderer->clear(0.05f, 0.05f, 0.07f, 1.0f);
-		renderer->set_color(glm::vec4(1, 1, 1, 1));
 
+		Vector mouse_world_pos = screen_to_world(this->camera, Vector(input->get_mouse_x(), input->get_mouse_y()));
+		mouse_world_pos.z = 3;
+
+		renderer->set_color(glm::vec4(1, 0, 0, 1));
+		renderer->render_rect(mouse_world_pos, MS, MS, rotation);
+
+		renderer->set_color(glm::vec4(1, 1, 1, 1));
 		int width = 200, height = 200;
 		for (int i = 0; i < height; i++) {
 			for (int j = 0; j < width; j++) {
-				renderer->render_image(texture, Vector((-width * 0.5f + j) * MS, (-height * 0.5f + i) * MS, 2), MS, MS, rotation);
+				renderer->render_image(texture, Vector((-width * 0.5f + j) * MS, (-height * 0.5f + i) * MS, 0), MS, MS, rotation);
 			}
 		}
 

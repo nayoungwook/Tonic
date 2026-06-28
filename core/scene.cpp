@@ -16,9 +16,47 @@
 #include "glm/glm.hpp"
 #include <glm/gtc/type_ptr.hpp>
 
+namespace {
+	bool render_context_less(const RenderContext &a, const RenderContext &b) {
+		if (a.position.z != b.position.z)
+			return a.position.z < b.position.z;
+		if (a.render_type != b.render_type)
+			return a.render_type < b.render_type;
+		if (a.frame_buffer != b.frame_buffer)
+			return std::less<FrameBuffer *>()(a.frame_buffer, b.frame_buffer);
+		if (a.is_ui != b.is_ui)
+			return a.is_ui < b.is_ui;
+		if (a.shader != b.shader)
+			return std::less<Shader *>()(a.shader, b.shader);
+		if (a.texture != b.texture)
+			return std::less<Texture *>()(a.texture, b.texture);
+		return a.slot < b.slot;
+	}
+
+	void sort_render_context_segments(std::vector<RenderContext> &queue) {
+		auto segment_begin = queue.begin();
+
+		for (auto it = queue.begin(); it != queue.end(); ++it) {
+			if (it->render_type != RT_CLEAR)
+				continue;
+
+			if (segment_begin != it) {
+				std::stable_sort(segment_begin, it, render_context_less);
+			}
+			segment_begin = it + 1;
+		}
+
+		if (segment_begin != queue.end()) {
+			std::stable_sort(segment_begin, queue.end(),
+				render_context_less);
+		}
+	}
+}
+
 Scene::Scene(Engine *engine) : engine(engine) {
 	render_context_queue.reserve(65536);
 	instance_batch.reserve(65536);
+	render_context_queue_needs_sort = true;
 }
 
 Engine *Scene::get_engine() { return engine; }
@@ -125,26 +163,7 @@ void Scene::flush_render_context() {
 	// Render Context batch sort order
 	// z_order , render_type (RT_Image, RT_Mesh...), is_ui, frame_buffer, shader, texture, slot
 	if (render_context_queue_needs_sort) {
-		std::stable_sort(
-			render_context_queue.begin(), render_context_queue.end(),
-			[](const RenderContext &a, const RenderContext &b) {
-				if (a.position.z != b.position.z)
-					return a.position.z < b.position.z;
-				if (a.render_type != b.render_type)
-					return a.render_type < b.render_type;
-				if (a.frame_buffer != b.frame_buffer)
-					return std::less<FrameBuffer *>()(
-						a.frame_buffer, b.frame_buffer);
-				if (a.is_ui != b.is_ui)
-					return a.is_ui < b.is_ui;
-				if (a.shader != b.shader)
-					return std::less<Shader *>()(a.shader,
-						b.shader);
-				if (a.texture != b.texture)
-					return std::less<Texture *>()(a.texture,
-						b.texture);
-				return a.slot < b.slot;
-			});
+		sort_render_context_segments(render_context_queue);
 	}
 
 	Camera *camera = engine->get_camera();
@@ -338,16 +357,11 @@ void Scene::add_texture_rc(const RenderContext &render_context) {
 
 	if (!render_context_queue.empty()) {
 		const RenderContext &last = render_context_queue.back();
-		if (last.render_type == RT_TEXTURE) {
+
+		if (last.render_type != RT_CLEAR) {
 			render_context_queue_needs_sort =
 				render_context_queue_needs_sort ||
-				last.position.z > render_context.position.z ||
-				(last.position.z == render_context.position.z &&
-					(last.frame_buffer !=
-						render_context.frame_buffer ||
-						last.shader != render_context.shader ||
-						last.texture != render_context.texture ||
-						last.slot != render_context.slot));
+				render_context_less(render_context, last);
 		}
 	}
 
@@ -369,14 +383,35 @@ void Scene::add_render_context(const RenderContext &render_context) {
 		break;
 
 	case RT_SHAPE:
+		if (!render_context_queue.empty() &&
+			render_context_queue.back().render_type != RT_CLEAR) {
+			render_context_queue_needs_sort =
+				render_context_queue_needs_sort ||
+				render_context_less(render_context,
+					render_context_queue.back());
+		}
 		render_context_queue.push_back(render_context);
 		break;
 
 	case RT_FRAMEBUFFER:
+		if (!render_context_queue.empty() &&
+			render_context_queue.back().render_type != RT_CLEAR) {
+			render_context_queue_needs_sort =
+				render_context_queue_needs_sort ||
+				render_context_less(render_context,
+					render_context_queue.back());
+		}
 		render_context_queue.push_back(render_context);
 		break;
 
 	case RT_MESH:
+		if (!render_context_queue.empty() &&
+			render_context_queue.back().render_type != RT_CLEAR) {
+			render_context_queue_needs_sort =
+				render_context_queue_needs_sort ||
+				render_context_less(render_context,
+					render_context_queue.back());
+		}
 		render_context_queue.push_back(render_context);
 		break;
 	}

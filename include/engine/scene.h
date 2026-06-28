@@ -64,7 +64,7 @@ private:
 
 	std::vector<RenderContext> render_context_queue;
 	std::vector<TextureInstance> instance_batch;
-	bool render_context_queue_needs_sort = false;
+	bool render_context_queue_needs_sort = true;
 
 	Rect cached_camera_view;
 	Vector cached_camera_position;
