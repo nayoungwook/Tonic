@@ -22,8 +22,8 @@ namespace {
 			return a.position.z < b.position.z;
 		if (a.render_type != b.render_type)
 			return a.render_type < b.render_type;
-		if (a.frame_buffer != b.frame_buffer)
-			return std::less<FrameBuffer *>()(a.frame_buffer, b.frame_buffer);
+		if (a.framebuffer != b.framebuffer)
+			return std::less<FrameBuffer *>()(a.framebuffer, b.framebuffer);
 		if (a.is_ui != b.is_ui)
 			return a.is_ui < b.is_ui;
 		if (a.shader != b.shader)
@@ -110,16 +110,16 @@ void Scene::flush_batch(Renderer *renderer,
 	instance_batch.clear();
 }
 
-inline void Scene::bind_frame_buffer(FrameBuffer *frame_buffer) {
-	if (frame_buffer != nullptr) {
-		frame_buffer->bind();
-		frame_buffer_cache = frame_buffer;
-		screen_frame_buffer_bound = false;
+inline void Scene::bind_framebuffer(FrameBuffer *framebuffer) {
+	if (framebuffer != nullptr) {
+		framebuffer->bind();
+		framebuffer_cache = framebuffer;
+		screen_framebuffer_bound = false;
 	}
-	else if (!screen_frame_buffer_bound) {
+	else if (!screen_framebuffer_bound) {
 		FrameBuffer::bind_screen_framebuffer();
-		frame_buffer_cache = nullptr;
-		screen_frame_buffer_bound = true;
+		framebuffer_cache = nullptr;
+		screen_framebuffer_bound = true;
 	}
 }
 
@@ -129,28 +129,28 @@ inline void Scene::rt_clear(Renderer *renderer) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-inline void Scene::rt_shape(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer) {
+inline void Scene::rt_shape(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *framebuffer) {
 	flush_batch(renderer, instance_batch, batch_texture,
 		batch_slot);
-	bind_frame_buffer(frame_buffer);
+	bind_framebuffer(framebuffer);
 	glBlendFunc(rc.blend_source, rc.blend_destination);
 	renderer->draw_shape(rc, view_projection);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-inline void Scene::rt_frame_buffer(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer) {
+inline void Scene::rt_framebuffer(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *framebuffer) {
 	flush_batch(renderer, instance_batch, batch_texture,
 		batch_slot);
-	bind_frame_buffer(frame_buffer);
+	bind_framebuffer(framebuffer);
 	glBlendFunc(rc.blend_source, rc.blend_destination);
 	renderer->draw_raw_texture(rc.raw_texture, rc, view_projection);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-inline void Scene::rt_mesh(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer) {
+inline void Scene::rt_mesh(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *framebuffer) {
 	flush_batch(renderer, instance_batch, batch_texture,
 		batch_slot);
-	bind_frame_buffer(frame_buffer);
+	bind_framebuffer(framebuffer);
 	glBlendFunc(rc.blend_source, rc.blend_destination);
 	renderer->draw_mesh(rc, view_projection);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -161,7 +161,7 @@ void Scene::flush_render_context() {
 		return;
 
 	// Render Context batch sort order
-	// z_order , render_type (RT_Image, RT_Mesh...), is_ui, frame_buffer, shader, texture, slot
+	// z_order , render_type (RT_Image, RT_Mesh...), is_ui, framebuffer, shader, texture, slot
 	if (render_context_queue_needs_sort) {
 		sort_render_context_segments(render_context_queue);
 	}
@@ -172,15 +172,15 @@ void Scene::flush_render_context() {
 	// cache for shaders and framebuffer
 	shader_cache = nullptr;
 	shader_cache_is_ui = false;
-	shader_cache_frame_buffer = nullptr;
-	frame_buffer_cache = nullptr;
+	shader_cache_framebuffer = nullptr;
+	framebuffer_cache = nullptr;
 
 	texture_uniform_location = -1;
-	screen_frame_buffer_bound = false;
+	screen_framebuffer_bound = false;
 	view_projection_uniform_location = -1;
 
 	// batch data
-	batch_frame_buffer = nullptr;
+	batch_framebuffer = nullptr;
 	batch_texture = nullptr;
 	batch_shader = nullptr;
 	batch_slot = 0;
@@ -192,19 +192,19 @@ void Scene::flush_render_context() {
 
 	bool pixel_perfect_cache = false;
 	bool has_view_projection_cache = false;
-	FrameBuffer *view_projection_cache_frame_buffer = nullptr;
+	FrameBuffer *view_projection_cache_framebuffer = nullptr;
 	bool view_projection_cache_is_ui = false;
 	glm::mat4 cached_view_projection(1.0f);
 
 	for (const RenderContext &rc : render_context_queue) {
 
 		Shader *shader = rc.shader;
-		FrameBuffer *frame_buffer = rc.frame_buffer;
+		FrameBuffer *framebuffer = rc.framebuffer;
 
-		bool pixel_perfect = (frame_buffer != nullptr && frame_buffer->is_pixel_perfect());
+		bool pixel_perfect = (framebuffer != nullptr && framebuffer->is_pixel_perfect());
 
 		if (!has_view_projection_cache ||
-			view_projection_cache_frame_buffer != frame_buffer ||
+			view_projection_cache_framebuffer != framebuffer ||
 			pixel_perfect != pixel_perfect_cache ||
 			view_projection_cache_is_ui != rc.is_ui) {
 
@@ -219,13 +219,13 @@ void Scene::flush_render_context() {
 			if (pixel_perfect) {
 				cached_view_projection =
 					camera->get_pixel_perfect_view_projection(
-						frame_buffer->get_pixel_per_unit(),
-						static_cast<float>(frame_buffer->get_width()),
-						static_cast<float>(frame_buffer->get_height()));
+						framebuffer->get_pixel_per_unit(),
+						static_cast<float>(framebuffer->get_width()),
+						static_cast<float>(framebuffer->get_height()));
 			}
 
 			has_view_projection_cache = true;
-			view_projection_cache_frame_buffer = frame_buffer;
+			view_projection_cache_framebuffer = framebuffer;
 			view_projection_cache_is_ui = rc.is_ui;
 			pixel_perfect_cache = pixel_perfect;
 		}
@@ -237,35 +237,35 @@ void Scene::flush_render_context() {
 
 		if (rc.render_type == RT_SHAPE) {
 			this->rt_shape(rc, cached_view_projection, renderer,
-				frame_buffer);
+				framebuffer);
 			continue;
 		}
 
 		if (rc.render_type == RT_FRAMEBUFFER) {
-			this->rt_frame_buffer(rc, cached_view_projection, renderer,
-				frame_buffer);
+			this->rt_framebuffer(rc, cached_view_projection, renderer,
+				framebuffer);
 			continue;
 		}
 
 		if (rc.render_type == RT_MESH) {
 			this->rt_mesh(rc, cached_view_projection, renderer,
-				frame_buffer);
+				framebuffer);
 			continue;
 		}
 
 		// change frame buffer
-		if (frame_buffer != nullptr &&
-			frame_buffer_cache != frame_buffer) {
+		if (framebuffer != nullptr &&
+			framebuffer_cache != framebuffer) {
 			flush_batch(renderer, instance_batch, batch_texture,
 				batch_slot);
-			bind_frame_buffer(frame_buffer);
-			frame_buffer_cache = frame_buffer;
-			screen_frame_buffer_bound = false;
+			bind_framebuffer(framebuffer);
+			framebuffer_cache = framebuffer;
+			screen_framebuffer_bound = false;
 		}
 
 		// update shader
 		if (shader_cache != shader || shader_cache_is_ui != rc.is_ui ||
-			shader_cache_frame_buffer != frame_buffer) {
+			shader_cache_framebuffer != framebuffer) {
 			flush_batch(renderer, instance_batch, batch_texture,
 				batch_slot);
 			shader->bind();
@@ -288,14 +288,14 @@ void Scene::flush_render_context() {
 			renderer->set_shader(shader);
 			shader_cache = shader;
 			shader_cache_is_ui = rc.is_ui;
-			shader_cache_frame_buffer = frame_buffer;
+			shader_cache_framebuffer = framebuffer;
 		}
 
 		if (rc.render_type == RT_TEXTURE) {
 			bool is_batch_changed =
 				batch_texture != rc.texture ||
 				batch_shader != shader ||
-				batch_frame_buffer != frame_buffer ||
+				batch_framebuffer != framebuffer ||
 				batch_slot != rc.slot ||
 				batch_is_ui != rc.is_ui ||
 				batch_blend_source != rc.blend_source ||
@@ -308,7 +308,7 @@ void Scene::flush_render_context() {
 				// cache batch data.
 				batch_texture = rc.texture;
 				batch_shader = shader;
-				batch_frame_buffer = frame_buffer;
+				batch_framebuffer = framebuffer;
 				batch_slot = rc.slot;
 				batch_is_ui = rc.is_ui;
 				batch_blend_source = rc.blend_source;

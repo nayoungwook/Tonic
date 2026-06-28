@@ -1,5 +1,5 @@
 #pragma once
-#include <SDL/SDL.h>
+#include <SDL3/SDL.h>
 #include <unordered_map>
 
 class Engine;
@@ -24,6 +24,10 @@ public:
     int get_mouse_y() const;
     float get_ui_mouse_x() const;
     float get_ui_mouse_y() const;
+    float get_window_mouse_x() const;
+    float get_window_mouse_y() const;
+    float get_viewport_mouse_x() const;
+    float get_viewport_mouse_y() const;
 
     // mouse wheel
     int get_mouse_wheel_x() const;
@@ -36,10 +40,16 @@ private:
     std::unordered_map<Uint8, bool> current_mouse;
     std::unordered_map<Uint8, bool> previous_mouse;
 
+    void update_mouse_position(float window_x, float window_y, Engine *engine);
+
     int mouse_x = 0;
     int mouse_y = 0;
     float ui_mouse_x = 0.0f;
     float ui_mouse_y = 0.0f;
+    float window_mouse_x = 0.0f;
+    float window_mouse_y = 0.0f;
+    float viewport_mouse_x = 0.0f;
+    float viewport_mouse_y = 0.0f;
 
     int wheel_x = 0;
     int wheel_y = 0;

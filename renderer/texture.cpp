@@ -244,7 +244,7 @@ void Texture::render(Renderer *renderer, const glm::mat4 &model) {
 	instance.transform.y = model[3].y;
 	instance.transform.z = glm::length(glm::vec2(model[0]));
 	instance.transform.w = glm::length(glm::vec2(model[1]));
-	instance.color = glm::vec4(1.0f);
+	instance.color = Color::white();
 	instance.uv = get_atlas_uv(atlas_slot);
 	instance.rotation = std::atan2(model[0].y, model[0].x);
 	render_instanced(renderer, &instance, 1);

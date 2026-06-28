@@ -4,7 +4,7 @@
 #include "engine/error.h"
 
 #include <GL/glew.h>
-#include <SDL/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <cmath>
@@ -27,7 +27,7 @@ namespace {
 	void current_drawable_size(int &width, int &height) {
 		SDL_Window *window = SDL_GL_GetCurrentWindow();
 		if (window != nullptr) {
-			SDL_GL_GetDrawableSize(window, &width, &height);
+			SDL_GetWindowSizeInPixels(window, &width, &height);
 		}
 		width = std::max(1, width);
 		height = std::max(1, height);

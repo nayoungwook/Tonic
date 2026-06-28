@@ -6,32 +6,127 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <fstream>
+#include <string>
+#include <vector>
 
-#define STB_TRUETYPE_IMPLEMENTATION
-#include <stb/stb_truetype.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 namespace {
+int ttf_init_count = 0;
+
 unsigned char to_byte(float value) {
 	return static_cast<unsigned char>(
 		std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
 }
 
-void blend_pixel(std::vector<unsigned char> &pixels, int width, int height,
-	int x, int y, const glm::vec4 &color, unsigned char alpha) {
-	if (x < 0 || y < 0 || x >= width || y >= height || alpha == 0)
+SDL_Color to_sdl_color(const Color &color) {
+	return SDL_Color{
+		to_byte(color.r),
+		to_byte(color.g),
+		to_byte(color.b),
+		to_byte(color.a),
+	};
+}
+
+bool acquire_ttf() {
+	if (!TTF_Init()) {
+		error(std::string("SDL3_ttf init failed: ") + SDL_GetError());
+		return false;
+	}
+
+	++ttf_init_count;
+	return true;
+}
+
+void release_ttf() {
+	if (ttf_init_count <= 0)
 		return;
 
-	float src_a = (alpha / 255.0f) * std::clamp(color.a, 0.0f, 1.0f);
-	int index = (y * width + x) * 4;
-	float dst_a = pixels[index + 3] / 255.0f;
+	--ttf_init_count;
+	TTF_Quit();
+}
+
+std::vector<std::string> split_lines(const std::string &text) {
+	std::vector<std::string> lines;
+	size_t start = 0;
+
+	while (start <= text.size()) {
+		size_t end = text.find('\n', start);
+		if (end == std::string::npos) {
+			lines.push_back(text.substr(start));
+			break;
+		}
+
+		lines.push_back(text.substr(start, end - start));
+		start = end + 1;
+	}
+
+	if (lines.empty())
+		lines.emplace_back();
+	return lines;
+}
+
+int measure_line_height(TTF_Font *font, const std::vector<std::string> &lines) {
+	int line_height =
+		std::max(1, std::max(TTF_GetFontLineSkip(font),
+			TTF_GetFontHeight(font)));
+
+	for (const std::string &line : lines) {
+		if (line.empty())
+			continue;
+
+		int width = 0;
+		int height = 0;
+		if (!TTF_GetStringSize(font, line.c_str(), line.size(), &width,
+				&height)) {
+			error(std::string("Failed to measure text: ") +
+				SDL_GetError());
+		}
+		line_height = std::max(line_height, height);
+	}
+
+	return line_height;
+}
+
+TTFont::TextMetrics measure_lines(TTF_Font *font,
+	const std::vector<std::string> &lines) {
+	TTFont::TextMetrics metrics;
+	int line_height = measure_line_height(font, lines);
+	int max_width = 0;
+
+	for (const std::string &line : lines) {
+		int width = 0;
+		int height = 0;
+		if (!line.empty() &&
+			!TTF_GetStringSize(font, line.c_str(), line.size(), &width,
+				&height)) {
+			error(std::string("Failed to measure text: ") +
+				SDL_GetError());
+		}
+		max_width = std::max(max_width, width);
+	}
+
+	metrics.width = std::max(1, max_width);
+	metrics.height = std::max(1,
+		line_height * static_cast<int>(std::max<size_t>(1, lines.size())));
+	return metrics;
+}
+
+void blend_pixel(std::vector<unsigned char> &pixels, int width, int height,
+	int x, int y, const unsigned char *src) {
+	if (x < 0 || y < 0 || x >= width || y >= height || src[3] == 0)
+		return;
+
+	float src_a = src[3] / 255.0f;
+	float dst_a = pixels[(y * width + x) * 4 + 3] / 255.0f;
 	float out_a = src_a + dst_a * (1.0f - src_a);
 	if (out_a <= 0.0f)
 		return;
 
-	float src_r = std::clamp(color.r, 0.0f, 1.0f);
-	float src_g = std::clamp(color.g, 0.0f, 1.0f);
-	float src_b = std::clamp(color.b, 0.0f, 1.0f);
+	int index = (y * width + x) * 4;
+	float src_r = src[0] / 255.0f;
+	float src_g = src[1] / 255.0f;
+	float src_b = src[2] / 255.0f;
 	float dst_r = pixels[index] / 255.0f;
 	float dst_g = pixels[index + 1] / 255.0f;
 	float dst_b = pixels[index + 2] / 255.0f;
@@ -45,55 +140,72 @@ void blend_pixel(std::vector<unsigned char> &pixels, int width, int height,
 	pixels[index + 3] = to_byte(out_a);
 }
 
-void draw_glyph(stbtt_fontinfo *font, std::vector<unsigned char> &pixels,
-	int width, int height, unsigned int codepoint, float scale, int pen_x,
-	int baseline, const glm::vec4 &color) {
-	int glyph_width = 0;
-	int glyph_height = 0;
-	int xoff = 0;
-	int yoff = 0;
-	unsigned char *bitmap = stbtt_GetCodepointBitmap(
-		font, 0, scale, static_cast<int>(codepoint), &glyph_width,
-		&glyph_height, &xoff, &yoff);
-
-	if (bitmap == nullptr)
+void blend_surface(std::vector<unsigned char> &pixels, int width, int height,
+	SDL_Surface *surface, int dst_x, int dst_y) {
+	if (surface == nullptr)
 		return;
 
-	for (int y = 0; y < glyph_height; ++y) {
-		for (int x = 0; x < glyph_width; ++x) {
-			unsigned char alpha = bitmap[y * glyph_width + x];
-			blend_pixel(pixels, width, height, pen_x + xoff + x,
-				baseline + yoff + y, color, alpha);
+	SDL_Surface *rgba = SDL_ConvertSurface(surface, SDL_PIXELFORMAT_RGBA32);
+	if (rgba == nullptr) {
+		error(std::string("Failed to convert text surface: ") +
+			SDL_GetError());
+	}
+
+	unsigned char *src_pixels =
+		static_cast<unsigned char *>(rgba->pixels);
+	for (int y = 0; y < rgba->h; ++y) {
+		unsigned char *row = src_pixels + y * rgba->pitch;
+		for (int x = 0; x < rgba->w; ++x) {
+			blend_pixel(pixels, width, height, dst_x + x, dst_y + y,
+				row + x * 4);
 		}
 	}
 
-	stbtt_FreeBitmap(bitmap, nullptr);
+	SDL_DestroySurface(rgba);
+}
+
+SDL_Surface *render_line(TTF_Font *font, const std::string &line,
+	const SDL_Color &color, int outline) {
+	if (line.empty())
+		return nullptr;
+
+	if (!TTF_SetFontOutline(font, outline)) {
+		error(std::string("Failed to set font outline: ") +
+			SDL_GetError());
+	}
+
+	SDL_Surface *surface = TTF_RenderText_Blended(
+		font, line.c_str(), line.size(), color);
+	if (surface == nullptr) {
+		error(std::string("Failed to render text: ") + SDL_GetError());
+	}
+
+	return surface;
 }
 }
 
 TTFont::TTFont(const std::string &font_path, float font_size)
 	: size(std::max(1.0f, font_size)) {
+	ttf_initialized = acquire_ttf();
+
 	std::filesystem::path resolved = resolve_font_path(font_path);
-	std::ifstream file(resolved, std::ios::binary);
-	if (!file) {
-		error("Failed to load font " + resolved.string());
-		return;
-	}
-
-	font_data.assign(std::istreambuf_iterator<char>(file),
-		std::istreambuf_iterator<char>());
-	font_info_storage = new stbtt_fontinfo();
-
-	if (font_data.empty() ||
-		!stbtt_InitFont(static_cast<stbtt_fontinfo *>(font_info_storage),
-			font_data.data(), 0)) {
-		error("Failed to parse font " + resolved.string());
+	font = TTF_OpenFont(resolved.string().c_str(), size);
+	if (font == nullptr) {
+		error("Failed to load font " + resolved.string() + ": " +
+			SDL_GetError());
 	}
 }
 
 TTFont::~TTFont() {
-	delete static_cast<stbtt_fontinfo *>(font_info_storage);
-	font_info_storage = nullptr;
+	if (font != nullptr) {
+		TTF_CloseFont(font);
+		font = nullptr;
+	}
+
+	if (ttf_initialized) {
+		release_ttf();
+		ttf_initialized = false;
+	}
 }
 
 std::filesystem::path TTFont::resolve_font_path(
@@ -123,150 +235,52 @@ std::filesystem::path TTFont::resolve_font_path(
 	return cwd / requested;
 }
 
-std::vector<TTFont::CodepointLine> TTFont::decode_lines(
-	const std::string &text) {
-	std::vector<CodepointLine> lines(1);
-
-	for (size_t i = 0; i < text.size();) {
-		unsigned char c = static_cast<unsigned char>(text[i]);
-		unsigned int codepoint = 0;
-		size_t advance = 1;
-
-		if (c == '\n') {
-			lines.emplace_back();
-			++i;
-			continue;
-		}
-		if ((c & 0x80) == 0) {
-			codepoint = c;
-		} else if ((c & 0xE0) == 0xC0 && i + 1 < text.size()) {
-			codepoint = ((c & 0x1F) << 6) |
-				(static_cast<unsigned char>(text[i + 1]) & 0x3F);
-			advance = 2;
-		} else if ((c & 0xF0) == 0xE0 && i + 2 < text.size()) {
-			codepoint = ((c & 0x0F) << 12) |
-				((static_cast<unsigned char>(text[i + 1]) & 0x3F) << 6) |
-				(static_cast<unsigned char>(text[i + 2]) & 0x3F);
-			advance = 3;
-		} else if ((c & 0xF8) == 0xF0 && i + 3 < text.size()) {
-			codepoint = ((c & 0x07) << 18) |
-				((static_cast<unsigned char>(text[i + 1]) & 0x3F) << 12) |
-				((static_cast<unsigned char>(text[i + 2]) & 0x3F) << 6) |
-				(static_cast<unsigned char>(text[i + 3]) & 0x3F);
-			advance = 4;
-		} else {
-			codepoint = '?';
-		}
-
-		lines.back().codepoints.push_back(codepoint);
-		i += advance;
-	}
-
-	return lines;
-}
-
 TTFont::TextMetrics TTFont::measure_text(const std::string &text) const {
-	TextMetrics metrics;
-	if (font_info_storage == nullptr)
-		return metrics;
+	if (font == nullptr)
+		return TextMetrics{};
 
-	auto *font = static_cast<stbtt_fontinfo *>(font_info_storage);
-	float scale = stbtt_ScaleForPixelHeight(font, size);
-	int ascent = 0;
-	int descent = 0;
-	int line_gap = 0;
-	stbtt_GetFontVMetrics(font, &ascent, &descent, &line_gap);
-	int line_height = std::max(1,
-		static_cast<int>(std::ceil((ascent - descent + line_gap) * scale)));
-
-	std::vector<CodepointLine> lines = decode_lines(text);
-	int max_width = 0;
-	for (const CodepointLine &line : lines) {
-		float x = 0.0f;
-		for (size_t i = 0; i < line.codepoints.size(); ++i) {
-			int advance = 0;
-			int left_bearing = 0;
-			stbtt_GetCodepointHMetrics(font,
-				static_cast<int>(line.codepoints[i]), &advance,
-				&left_bearing);
-			x += advance * scale;
-			if (i + 1 < line.codepoints.size()) {
-				x += stbtt_GetCodepointKernAdvance(font,
-					static_cast<int>(line.codepoints[i]),
-					static_cast<int>(line.codepoints[i + 1])) * scale;
-			}
-		}
-		max_width = std::max(max_width, static_cast<int>(std::ceil(x)));
-	}
-
-	metrics.width = std::max(1, max_width);
-	metrics.height = std::max(1, line_height *
-		static_cast<int>(std::max<size_t>(1, lines.size())));
-	return metrics;
+	TTF_SetFontOutline(font, 0);
+	return measure_lines(font, split_lines(text));
 }
 
 std::unique_ptr<Texture> TTFont::create_texture(const std::string &text,
-	const glm::vec4 &color, const glm::vec4 &outline_color,
+	const Color &color, const Color &outline_color,
 	float outline_width) {
-	if (font_info_storage == nullptr)
+	if (font == nullptr)
 		return nullptr;
 
-	auto *font = static_cast<stbtt_fontinfo *>(font_info_storage);
-	float scale = stbtt_ScaleForPixelHeight(font, size);
-	int ascent = 0;
-	int descent = 0;
-	int line_gap = 0;
-	stbtt_GetFontVMetrics(font, &ascent, &descent, &line_gap);
-
-	int baseline_offset = static_cast<int>(std::ceil(ascent * scale));
-	int line_height = std::max(1,
-		static_cast<int>(std::ceil((ascent - descent + line_gap) * scale)));
+	TTF_SetFontOutline(font, 0);
+	std::vector<std::string> lines = split_lines(text);
+	TextMetrics metrics = measure_lines(font, lines);
 	int outline = std::max(0, static_cast<int>(std::ceil(outline_width)));
-	TextMetrics metrics = measure_text(text);
 	int width = std::max(1, metrics.width + outline * 2 + 4);
 	int height = std::max(1, metrics.height + outline * 2 + 4);
+	int line_height = measure_line_height(font, lines);
 	std::vector<unsigned char> pixels(width * height * 4, 0);
-	std::vector<CodepointLine> lines = decode_lines(text);
+	SDL_Color fill_color = to_sdl_color(color);
+	SDL_Color stroke_color = to_sdl_color(outline_color);
 
 	for (size_t line_index = 0; line_index < lines.size(); ++line_index) {
-		const CodepointLine &line = lines[line_index];
-		int pen_x = outline + 2;
-		int baseline = outline + 2 + baseline_offset +
-			static_cast<int>(line_index) * line_height;
+		const std::string &line = lines[line_index];
+		int line_y = static_cast<int>(line_index) * line_height;
 
-		for (size_t i = 0; i < line.codepoints.size(); ++i) {
-			unsigned int codepoint = line.codepoints[i];
-
-			if (outline > 0) {
-				for (int oy = -outline; oy <= outline; ++oy) {
-					for (int ox = -outline; ox <= outline; ++ox) {
-						if (ox == 0 && oy == 0)
-							continue;
-						if (ox * ox + oy * oy > outline * outline)
-							continue;
-						draw_glyph(font, pixels, width, height, codepoint,
-							scale, pen_x + ox, baseline + oy,
-							outline_color);
-					}
-				}
-			}
-
-			draw_glyph(font, pixels, width, height, codepoint, scale, pen_x,
-				baseline, color);
-
-			int advance = 0;
-			int left_bearing = 0;
-			stbtt_GetCodepointHMetrics(font, static_cast<int>(codepoint),
-				&advance, &left_bearing);
-			pen_x += static_cast<int>(std::round(advance * scale));
-			if (i + 1 < line.codepoints.size()) {
-				pen_x += static_cast<int>(std::round(
-					stbtt_GetCodepointKernAdvance(font,
-						static_cast<int>(codepoint),
-						static_cast<int>(line.codepoints[i + 1])) * scale));
-			}
+		if (outline > 0) {
+			SDL_Surface *outline_surface =
+				render_line(font, line, stroke_color, outline);
+			blend_surface(pixels, width, height, outline_surface, 2,
+				2 + line_y);
+			if (outline_surface != nullptr)
+				SDL_DestroySurface(outline_surface);
 		}
+
+		SDL_Surface *fill_surface = render_line(font, line, fill_color, 0);
+		blend_surface(pixels, width, height, fill_surface, outline + 2,
+			outline + 2 + line_y);
+		if (fill_surface != nullptr)
+			SDL_DestroySurface(fill_surface);
 	}
+
+	TTF_SetFontOutline(font, 0);
 
 	last_width = width;
 	last_height = height;

@@ -1,7 +1,9 @@
 #pragma once
 
+#include "engine/color.h"
+
 #include <GL/glew.h>
-#include <SDL/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <filesystem>
 #include <iostream>
@@ -17,7 +19,7 @@ class Renderer;
 
 struct TextureInstance {
 	glm::vec4 transform;
-	glm::vec4 color;
+	Color color;
 	glm::vec4 uv;
 	float rotation;
 };

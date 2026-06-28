@@ -8,13 +8,14 @@
 
 Display::Display(const std::string &title, int width, int height)
 	: title(title), width(width), height(height) {
-	window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
-		SDL_WINDOWPOS_CENTERED, width, height,
-		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	window = SDL_CreateWindow(title.c_str(), width, height,
+		SDL_WINDOW_OPENGL);
 
 	if (window == nullptr) {
 		error("Window creation failed.");
 	}
+	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED,
+		SDL_WINDOWPOS_CENTERED);
 
 	gl_context = SDL_GL_CreateContext(window);
 	if (!gl_context) {
@@ -30,7 +31,10 @@ Display::Display(const std::string &title, int width, int height)
 }
 
 Display::~Display() {
-	SDL_DestroyWindow(window);
+	if (gl_context != nullptr)
+		SDL_GL_DestroyContext(gl_context);
+	if (window != nullptr)
+		SDL_DestroyWindow(window);
 	SDL_Quit();
 }
 
@@ -78,7 +82,7 @@ void Display::apply_screen_viewport() {
 }
 
 void Display::set_fullscreen() {
-	SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+	SDL_SetWindowFullscreen(window, true);
 	int w = 0;
 	int h = 0;
 	SDL_GetWindowSize(window, &w, &h);
@@ -86,7 +90,7 @@ void Display::set_fullscreen() {
 }
 
 void Display::set_windowed(int width, int height) {
-	SDL_SetWindowFullscreen(window, 0);
+	SDL_SetWindowFullscreen(window, false);
 	SDL_SetWindowSize(window, std::max(1, width), std::max(1, height));
 	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED);

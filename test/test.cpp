@@ -13,8 +13,10 @@ private:
 	TTFont *font = nullptr;
 
 	Vector camera_target_position;
-	FrameBuffer *ui_frame_buffer = nullptr;
-	FrameBuffer *game_frame_buffer = nullptr;
+	FrameBuffer *ui_framebuffer = nullptr;
+	FrameBuffer *game_framebuffer = nullptr;
+
+	Sound *music = nullptr;
 
 	const int MS = 500;
 	float rotation = 0;
@@ -34,11 +36,14 @@ public:
 		camera = this->engine->get_camera();
 		font = new TTFont("resources/GalmuriMono11.ttf", 64);
 
+		music = new Sound("resources/ChickenGame.mp3");
+		music->play();
+
 		camera_target_position = Vector(0, 0);
 
-		ui_frame_buffer = new FrameBuffer();
-		game_frame_buffer = new FrameBuffer(true);
-		game_frame_buffer->set_pixel_per_unit(32, MS);
+		ui_framebuffer = new FrameBuffer();
+		game_framebuffer = new FrameBuffer(true);
+		game_framebuffer->set_pixel_per_unit(32, MS);
 	}
 
 	void update() {
@@ -57,6 +62,11 @@ public:
 			camera_target_position += Vector(1, 0) * camera_move_speed;
 		}
 
+		if (input->is_key_pressed(SDL_SCANCODE_F)) {
+			this->engine->get_display()->set_fullscreen();
+			//this->engine->get_display()->set_windowed(1920, 1080);
+		}
+
 		zoom += 0.05f * input->get_mouse_wheel_y();
 
 		camera->zoom += (zoom - camera->zoom) / 5;
@@ -66,22 +76,22 @@ public:
 	void render() {
 		this->default_unlit->bind();
 
-		this->engine->set_frame_buffer(ui_frame_buffer);
+		this->engine->set_framebuffer(ui_framebuffer);
 		renderer->clear(0.0f, 0.0f, 0.0f, 0.0f);
-		renderer->set_color(glm::vec4(1, 1, 0, 1));
+		renderer->set_color(Color(1, 1, 0, 1));
 		renderer->render_ui_font(font, "this is for test.", Vector(0, 0, 1), rotation);
 
 
-		this->engine->set_frame_buffer(game_frame_buffer);
+		this->engine->set_framebuffer(game_framebuffer);
 		renderer->clear(0.05f, 0.05f, 0.07f, 1.0f);
 
 		Vector mouse_world_pos = screen_to_world(this->camera, Vector(input->get_mouse_x(), input->get_mouse_y()));
 		mouse_world_pos.z = 3;
 
-		renderer->set_color(glm::vec4(1, 0, 0, 1));
+		renderer->set_color(Color(1, 0, 0, 1));
 		renderer->render_rect(mouse_world_pos, MS, MS, rotation);
 
-		renderer->set_color(glm::vec4(1, 1, 1, 1));
+		renderer->set_color(Color::white());
 		int width = 200, height = 200;
 		for (int i = 0; i < height; i++) {
 			for (int j = 0; j < width; j++) {
@@ -89,10 +99,10 @@ public:
 			}
 		}
 
-		this->engine->set_frame_buffer(nullptr);
+		this->engine->set_framebuffer(nullptr);
 		renderer->clear(0.0f, 0.0f, 0.0f, 1.0f);
-		renderer->render_ui_framebuffer(game_frame_buffer, Vector(0, 0, 10), camera->get_width(), camera->get_height());
-		renderer->render_ui_framebuffer(ui_frame_buffer, Vector(0, 0, 11), camera->get_width(), camera->get_height());
+		renderer->render_ui_framebuffer(game_framebuffer, Vector(0, 0, 10), camera->get_width(), camera->get_height());
+		renderer->render_ui_framebuffer(ui_framebuffer, Vector(0, 0, 11), camera->get_width(), camera->get_height());
 	}
 };
 

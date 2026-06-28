@@ -52,12 +52,12 @@ void Renderer::render_texture(Texture *texture,
 
 void Renderer::render_texture(Texture *texture, Shader *shader,
 	const Vector &position, float width, float height, float rotation,
-	const glm::vec4 &color, int atlas_slot, bool is_ui) {
+	const Color &color, int atlas_slot, bool is_ui) {
 	if (texture == nullptr || shader == nullptr)
 		return;
-	FrameBuffer *frame_buffer = this->engine->get_frame_buffer();
+	FrameBuffer *framebuffer = this->engine->get_framebuffer();
 
-	RenderContext rc = gen_render_context(frame_buffer, texture, shader,
+	RenderContext rc = gen_render_context(framebuffer, texture, shader,
 		position, atlas_slot, rotation, width, height, color, is_ui);
 	engine->get_current_scene()->add_render_context(rc);
 }
@@ -87,7 +87,7 @@ void Renderer::render_ui_image(Texture *texture, const Vector &position,
 
 void Renderer::queue_shape(ShapeType shape_type, const Vector &position,
 	float width, float height, float rotation, bool is_ui) {
-	RenderContext rc = gen_shape_render_context(engine->get_frame_buffer(),
+	RenderContext rc = gen_shape_render_context(engine->get_framebuffer(),
 		shape_type, position, rotation, width, height, color, is_ui);
 	engine->get_current_scene()->add_render_context(rc);
 }
@@ -164,7 +164,7 @@ void Renderer::render_framebuffer_part(FrameBuffer *source,
 	const glm::vec4 &uv, bool is_ui) {
 	if (source == nullptr)
 		return;
-	RenderContext rc = gen_framebuffer_render_context(engine->get_frame_buffer(),
+	RenderContext rc = gen_framebuffer_render_context(engine->get_framebuffer(),
 		source, position, rotation, width, height, color, is_ui);
 	rc.uv = uv;
 	engine->get_current_scene()->add_render_context(rc);
@@ -179,7 +179,7 @@ void Renderer::render_mesh(Mesh *mesh, Shader *shader, const Vector &position,
 	float width, float height, float rotation) {
 	if (mesh == nullptr || shader == nullptr)
 		return;
-	RenderContext rc = gen_mesh_render_context(engine->get_frame_buffer(), mesh,
+	RenderContext rc = gen_mesh_render_context(engine->get_framebuffer(), mesh,
 		shader, position, rotation, width, height, color, false);
 	engine->get_current_scene()->add_render_context(rc);
 }
@@ -193,14 +193,14 @@ void Renderer::render_ui_mesh(Mesh *mesh, Shader *shader,
 	const Vector &position, float width, float height, float rotation) {
 	if (mesh == nullptr || shader == nullptr)
 		return;
-	RenderContext rc = gen_mesh_render_context(engine->get_frame_buffer(), mesh,
+	RenderContext rc = gen_mesh_render_context(engine->get_framebuffer(), mesh,
 		shader, position, rotation, width, height, color, true);
 	engine->get_current_scene()->add_render_context(rc);
 }
 
 void Renderer::queue_font(TTFont *font, const std::string &text,
 	const Vector &position, const std::string &align,
-	const glm::vec4 &outline_color, float outline_width, float rotation, bool is_ui) {
+	const Color &outline_color, float outline_width, float rotation, bool is_ui) {
 	if (font == nullptr || text.empty())
 		return;
 
@@ -220,40 +220,39 @@ void Renderer::queue_font(TTFont *font, const std::string &text,
 	Texture *texture = text_texture.get();
 	frame_textures.push_back(std::move(text_texture));
 	render_texture(texture, shader, render_position, width, height, rotation,
-		glm::vec4(1.0f), -1, is_ui);
+		Color::white(), -1, is_ui);
 }
 
 void Renderer::render_font(TTFont *font, const std::string &text,
 	const Vector &position, const std::string &align) {
 	queue_font(font, text, position, align,
-		glm::vec4(0, 0, 0, 0.0f),
+		Color::transparent(),
 		0.0f, 0.0f, false);
 }
 
 void Renderer::render_font(TTFont *font, const std::string &text,
 	const Vector &position, float rotation) {
 	queue_font(font, text, position, "center",
-		glm::vec4(0, 0, 0, 0.0f),
+		Color::transparent(),
 		0.0f, rotation, false);
 }
 
 void Renderer::render_font(TTFont *font, const std::string &text,
 	const Vector &position, const std::string &align,
-	const glm::vec4 &outline_color, float outline_width) {
+	const Color &outline_color, float outline_width) {
 	queue_font(font, text, position, align, outline_color, outline_width, 0.0f,
 		false);
 }
 
 void Renderer::render_ui_font(TTFont *font, const std::string &text,
 	const Vector &position, const std::string &align) {
-	queue_font(font, text, position, align,
-		glm::vec4(39.0f / 255.0f, 39.0f / 255.0f, 54.0f / 255.0f, 1.0f),
+	queue_font(font, text, position, align, Color::outline(),
 		0.0f, 0.0f, true);
 }
 
 void Renderer::render_ui_font(TTFont *font, const std::string &text,
 	const Vector &position, const std::string &align,
-	const glm::vec4 &outline_color, float outline_width) {
+	const Color &outline_color, float outline_width) {
 	queue_font(font, text, position, align, outline_color, outline_width, 0.0f,
 		true);
 }
@@ -261,23 +260,23 @@ void Renderer::render_ui_font(TTFont *font, const std::string &text,
 void Renderer::render_ui_font(TTFont *font, const std::string &text,
 	const Vector &position, float rotation, const std::string &align) {
 	queue_font(font, text, position, align,
-		glm::vec4(0, 0, 0, 0),
+		Color::transparent(),
 		0.0f, rotation, true);
 }
 
 void Renderer::render_ui_font(TTFont *font, const std::string &text,
 	const Vector &position, float rotation, const std::string &align,
-	const glm::vec4 &outline_color, float outline_width) {
+	const Color &outline_color, float outline_width) {
 	queue_font(font, text, position, align, outline_color, outline_width, rotation,
 		true);
 }
 
 
 void Renderer::clear() {
-	FrameBuffer *frame_buffer = this->engine->get_frame_buffer();
+	FrameBuffer *framebuffer = this->engine->get_framebuffer();
 
-	if (frame_buffer != nullptr) {
-		frame_buffer->bind();
+	if (framebuffer != nullptr) {
+		framebuffer->bind();
 	}
 	else {
 		FrameBuffer::bind_screen_framebuffer();
@@ -291,9 +290,13 @@ void Renderer::clear(float r, float g, float b, float a) {
 	clear();
 }
 
-void Renderer::set_color(const glm::vec4 &color) { this->color = color; }
+void Renderer::clear(const Color &color) {
+	clear(color.r, color.g, color.b, color.a);
+}
 
-glm::vec4 Renderer::get_color() const { return color; }
+void Renderer::set_color(const Color &color) { this->color = color; }
+
+Color Renderer::get_color() const { return color; }
 
 Camera *Renderer::get_camera() { return camera; }
 
@@ -341,7 +344,7 @@ void Renderer::draw_shape(const RenderContext &rc, const glm::mat4 &vp) {
 	shape_shader->upload_vec4("uTransform",
 		glm::vec4(rc.position.x, rc.position.y, rc.width, rc.height));
 	shape_shader->upload_float("uRotation", rc.rotation);
-	shape_shader->upload_vec4("uColor", rc.color);
+	shape_shader->upload_color("uColor", rc.color);
 	shape_shader->upload_int("uShapeType", static_cast<int>(rc.shape_type));
 
 	glBindVertexArray(quad_vao);
@@ -353,7 +356,7 @@ void Renderer::draw_raw_texture(unsigned texture_id, const RenderContext &rc,
 	if (texture_id == 0)
 		return;
 
-	bool pixel_perfect = rc.is_pixel_perfect_frame_buffer;
+	bool pixel_perfect = rc.is_pixel_perfect_framebuffer;
 
 	quad_shader->bind();
 	quad_shader->upload_mat4("uViewProjection", vp);
@@ -361,7 +364,7 @@ void Renderer::draw_raw_texture(unsigned texture_id, const RenderContext &rc,
 		glm::vec4(rc.position.x, rc.position.y, rc.width, rc.height));
 	quad_shader->upload_vec4("uUv", rc.uv);
 	quad_shader->upload_float("uRotation", rc.rotation);
-	quad_shader->upload_vec4("uColor", rc.color);
+	quad_shader->upload_color("uColor", rc.color);
 	quad_shader->upload_int("uTexture", 0);
 	quad_shader->upload_int("uPixelPerfect", pixel_perfect ? 1 : 0);
 
@@ -404,7 +407,7 @@ void Renderer::draw_mesh(const RenderContext &rc, const glm::mat4 &vp) {
 	rc.shader->upload_mat4("uView", glm::mat4(1.0f));
 	rc.shader->upload_mat4("uProjection", vp);
 	rc.shader->upload_mat4("uModel", model);
-	rc.shader->upload_vec4("uColor", rc.color);
+	rc.shader->upload_color("uColor", rc.color);
 
 	glBindVertexArray(rc.mesh->get_vao());
 	glDrawElements(rc.mesh->get_draw_mode(), rc.mesh->get_index_count(),

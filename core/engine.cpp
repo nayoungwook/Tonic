@@ -2,6 +2,7 @@
 
 #include "engine/camera.h"
 #include "engine/display.h"
+#include "engine/error.h"
 #include "engine/framebuffer.h"
 #include "engine/input.h"
 #include "engine/renderer.h"
@@ -13,9 +14,8 @@
 #include <algorithm>
 
 void Engine::init_engine(const std::string &title, int width, int height) {
-
-	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-		printf("SDL_Init Error: %s\n", SDL_GetError());
+	if (!SDL_Init(SDL_INIT_VIDEO)) {
+		error(std::string("SDL_Init Error: ") + SDL_GetError());
 	}
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -32,7 +32,7 @@ void Engine::init_engine(const std::string &title, int width, int height) {
 	display->update_viewport(width, height);
 	Input *input = new Input();
 
-	default_frame_buffer = new FrameBuffer(false);
+	default_framebuffer = new FrameBuffer(false);
 
 	ShaderManager *shader_manager = new ShaderManager();
 
@@ -47,7 +47,7 @@ void Engine::init_engine(const std::string &title, int width, int height) {
 	Renderer *renderer = new Renderer(
 		this, camera, shader_manager->get_shader("default_unlit"));
 
-	this->current_frame_buffer = default_frame_buffer;
+	this->current_framebuffer = default_framebuffer;
 	this->display = display;
 	this->camera = camera;
 	this->renderer = renderer;
@@ -68,14 +68,14 @@ void Engine::set_scene(Scene *scene) {
 	scene->init();
 }
 
-FrameBuffer *Engine::get_frame_buffer() { return current_frame_buffer; }
+FrameBuffer *Engine::get_framebuffer() { return current_framebuffer; }
 
-void Engine::set_frame_buffer(FrameBuffer *frame_buffer) {
-	if (frame_buffer == nullptr) {
-		this->current_frame_buffer = default_frame_buffer;
+void Engine::set_framebuffer(FrameBuffer *framebuffer) {
+	if (framebuffer == nullptr) {
+		this->current_framebuffer = default_framebuffer;
 		return;
 	}
-	this->current_frame_buffer = frame_buffer;
+	this->current_framebuffer = framebuffer;
 }
 
 void Engine::start() {
@@ -103,17 +103,15 @@ void Engine::start() {
 			input->process_event(event, this);
 
 			switch (event.type) {
-			case SDL_QUIT:
+			case SDL_EVENT_QUIT:
 				running = false;
 				break;
 
-			case SDL_WINDOWEVENT:
-				if (event.window.event ==
-					SDL_WINDOWEVENT_SIZE_CHANGED) {
-					int w = event.window.data1;
-					int h = event.window.data2;
-					this->display->update_viewport(w, h);
-				}
+			case SDL_EVENT_WINDOW_RESIZED:
+			case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+				int w = event.window.data1;
+				int h = event.window.data2;
+				this->display->update_viewport(w, h);
 			}
 		}
 
@@ -133,11 +131,11 @@ void Engine::start() {
 		}
 
 		if (current_scene != nullptr) {
-			FrameBuffer *previous_frame_buffer = current_frame_buffer;
+			FrameBuffer *previous_framebuffer = current_framebuffer;
 
-			set_frame_buffer(default_frame_buffer);
+			set_framebuffer(default_framebuffer);
 			FrameBuffer::resize_camera_sized_framebuffers(camera);
-			default_frame_buffer->bind();
+			default_framebuffer->bind();
 
 			// render and flush.
 			current_scene->render();
@@ -148,21 +146,21 @@ void Engine::start() {
 			display->apply_screen_viewport();
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			// Ready to render default_frame_buffer
+			// Ready to render default_framebuffer
 			RenderContext present_context =
 				gen_framebuffer_render_context(nullptr,
-					default_frame_buffer,
+					default_framebuffer,
 					Vector(0, 0),
 					0.0f,
 					camera->get_width(),
 					camera->get_height(),
-					glm::vec4(1.0f),
+					Color::white(),
 					true);
 
 			// flush
 			current_scene->add_render_context(present_context);
 			current_scene->flush_render_context();
-			current_frame_buffer = previous_frame_buffer;
+			current_framebuffer = previous_framebuffer;
 		}
 
 		frames++;

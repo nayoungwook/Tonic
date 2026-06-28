@@ -3,11 +3,11 @@
 #include <memory>
 #include <filesystem>
 #include <string>
-#include <vector>
 
-#include <glm/glm.hpp>
+#include "engine/color.h"
 
 class Texture;
+struct TTF_Font;
 
 class TTFont {
 public:
@@ -22,9 +22,8 @@ public:
 	TTFont &operator=(const TTFont &) = delete;
 
 	std::unique_ptr<Texture> create_texture(
-		const std::string &text, const glm::vec4 &color,
-		const glm::vec4 &outline_color = glm::vec4(39.0f / 255.0f,
-			39.0f / 255.0f, 54.0f / 255.0f, 1.0f),
+		const std::string &text, const Color &color,
+		const Color &outline_color = Color::outline(),
 		float outline_width = 0.0f);
 	TextMetrics measure_text(const std::string &text) const;
 
@@ -33,15 +32,10 @@ public:
 	int get_last_height() const;
 
 private:
-	struct CodepointLine {
-		std::vector<unsigned int> codepoints;
-	};
-
-	static std::vector<CodepointLine> decode_lines(const std::string &text);
 	std::filesystem::path resolve_font_path(const std::string &font_path) const;
 
-	std::vector<unsigned char> font_data;
-	void *font_info_storage = nullptr;
+	TTF_Font *font = nullptr;
+	bool ttf_initialized = false;
 	float size = 16.0f;
 	mutable int last_width = 0;
 	mutable int last_height = 0;

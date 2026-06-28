@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/color.h"
 #include "engine/render_context.h"
 
 #include <glm/glm.hpp>
@@ -29,7 +30,7 @@ public:
 		float height);
 	void render_texture(Texture *texture, Shader *shader,
 		const Vector &position, float width, float height, float rotation,
-		const glm::vec4 &color, int atlas_slot = -1, bool is_ui = false);
+		const Color &color, int atlas_slot = -1, bool is_ui = false);
 	void render_image(Texture *texture, const Vector &position, float width,
 		float height);
 	void render_image(Texture *texture, const Vector &position, float width,
@@ -76,25 +77,26 @@ public:
 		const Vector &position, const std::string &align = "center");
 	void render_font(TTFont *font, const std::string &text,
 		const Vector &position, const std::string &align,
-		const glm::vec4 &outline_color, float outline_width);
+		const Color &outline_color, float outline_width);
 	void render_font(TTFont *font, const std::string &text,
 		const Vector &position, float rotation);
 	void render_ui_font(TTFont *font, const std::string &text,
 		const Vector &position, const std::string &align = "center");
 	void render_ui_font(TTFont *font, const std::string &text,
 		const Vector &position, const std::string &align,
-		const glm::vec4 &outline_color, float outline_width);
+		const Color &outline_color, float outline_width);
 	void render_ui_font(TTFont *font, const std::string &text,
 		const Vector &position, float rotation, const std::string &align = "center");
 	void render_ui_font(TTFont *font, const std::string &text,
 		const Vector &position, float rotation, const std::string &align,
-		const glm::vec4 &outline_color, float outline_width);
+		const Color &outline_color, float outline_width);
 
 	void begin_frame();
 	void clear();
 	void clear(float r, float g, float b, float a = 1.0f);
-	void set_color(const glm::vec4 &color);
-	glm::vec4 get_color() const;
+	void clear(const Color &color);
+	void set_color(const Color &color);
+	Color get_color() const;
 
 	Shader *get_shader();
 	void set_shader(Shader *shader);
@@ -111,7 +113,7 @@ private:
 		float width, float height, float rotation, bool is_ui);
 	void queue_font(TTFont *font, const std::string &text,
 		const Vector &position, const std::string &align,
-		const glm::vec4 &outline_color, float outline_width, float rotation, bool is_ui);
+		const Color &outline_color, float outline_width, float rotation, bool is_ui);
 
 	Engine *engine;
 	Shader *shader;
@@ -119,7 +121,7 @@ private:
 	Shader *quad_shader = nullptr;
 	Texture *white_texture = nullptr;
 	Camera *camera;
-	glm::vec4 color = glm::vec4(1.0f);
+	Color color = Color::white();
 	std::vector<std::unique_ptr<Texture>> frame_textures;
 	unsigned quad_vao = 0;
 	unsigned quad_vbo = 0;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <SDL/SDL.h>
+#include <SDL3/SDL.h>
 #include <fstream>
 #include <iostream>
 #include <sstream>

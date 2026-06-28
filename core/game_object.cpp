@@ -52,18 +52,18 @@ void GameObject::render() {
 
 	RenderContext rc = {};
 	if (mesh != nullptr) {
-		rc = gen_mesh_render_context(this->engine->get_frame_buffer(),
+		rc = gen_mesh_render_context(this->engine->get_framebuffer(),
 			mesh, render_shader, render_position, rotation,
-			render_width, render_height, glm::vec4(1.0f), ui);
+			render_width, render_height, Color::white(), ui);
 	}
 	else {
 		if (texture == nullptr) {
 			error("GameObject has no texture or mesh");
 			return;
 		}
-		rc = gen_render_context(this->engine->get_frame_buffer(),
+		rc = gen_render_context(this->engine->get_framebuffer(),
 			this->texture, render_shader, render_position, this->slot,
-			this->rotation, render_width, render_height, glm::vec4(1.0f), ui);
+			this->rotation, render_width, render_height, Color::white(), ui);
 	}
 
 	rc.blend_source = blend_source;

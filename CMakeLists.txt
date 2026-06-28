@@ -82,7 +82,9 @@ target_link_libraries(${GAME_NAME}
     PRIVATE
         OpenGL::GL
         ${LIB_DIR}/glew32.lib
-        ${LIB_DIR}/SDL2.lib
+        ${LIB_DIR}/SDL3.lib
+        ${LIB_DIR}/SDL3_ttf.lib
+        ${LIB_DIR}/SDL3_mixer.lib
 )
 
 # ==========================================================
@@ -124,7 +126,19 @@ endif()
 # ==========================================================
 add_custom_command(TARGET ${GAME_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${LIB_DIR}/SDL2.dll
+        ${LIB_DIR}/SDL3.dll
+        $<TARGET_FILE_DIR:${GAME_NAME}>
+)
+
+add_custom_command(TARGET ${GAME_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${LIB_DIR}/SDL3_ttf.dll
+        $<TARGET_FILE_DIR:${GAME_NAME}>
+)
+
+add_custom_command(TARGET ${GAME_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${LIB_DIR}/SDL3_mixer.dll
         $<TARGET_FILE_DIR:${GAME_NAME}>
 )
 

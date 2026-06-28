@@ -39,10 +39,10 @@ void ScreenQuad::init() {
 	glBindVertexArray(0);
 }
 
-void ScreenQuad::render(FrameBuffer *frame_buffer) {
+void ScreenQuad::render(FrameBuffer *framebuffer) {
 	init();
-	if (frame_buffer != nullptr)
-		frame_buffer->bind_texture(0);
+	if (framebuffer != nullptr)
+		framebuffer->bind_texture(0);
 	glBindVertexArray(vao);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }

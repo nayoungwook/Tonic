@@ -1,4 +1,5 @@
 #include "engine/shader.h"
+#include "engine/color.h"
 #include "engine/util.h"
 
 #include <glm/gtc/type_ptr.hpp>
@@ -82,6 +83,13 @@ void Shader::upload_vec4(const std::string &name, const glm::vec4 &value) {
 	int location = get_uniform_location(name);
 	if (location != -1)
 		glUniform4f(location, value.x, value.y, value.z, value.w);
+}
+
+void Shader::upload_color(const std::string &name, const Color &value) {
+	bind();
+	int location = get_uniform_location(name);
+	if (location != -1)
+		glUniform4f(location, value.r, value.g, value.b, value.a);
 }
 
 void Shader::upload_vec2_array(const std::string &name,

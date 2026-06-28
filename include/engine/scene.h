@@ -32,13 +32,13 @@ protected:
 private:
 	Shader *shader_cache = nullptr;
 	bool shader_cache_is_ui = false;
-	FrameBuffer *shader_cache_frame_buffer = nullptr;
-	FrameBuffer *frame_buffer_cache = nullptr;
-	FrameBuffer *batch_frame_buffer = nullptr;
+	FrameBuffer *shader_cache_framebuffer = nullptr;
+	FrameBuffer *framebuffer_cache = nullptr;
+	FrameBuffer *batch_framebuffer = nullptr;
 	Texture *batch_texture = nullptr;
 	Shader *batch_shader = nullptr;
 	int texture_uniform_location = -1;
-	bool screen_frame_buffer_bound = false;
+	bool screen_framebuffer_bound = false;
 	int view_projection_uniform_location = -1;
 	int batch_slot = 0;
 	bool batch_is_ui = false;
@@ -48,12 +48,12 @@ private:
 	void add_texture_rc(const RenderContext &render_context);
 	void add_clear_rc(const RenderContext &render_context);
 
-	inline void Scene::bind_frame_buffer(FrameBuffer *frame_buffer);
+	inline void Scene::bind_framebuffer(FrameBuffer *framebuffer);
 
 	inline void rt_clear(Renderer *renderer);
-	inline void rt_shape(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer);
-	inline void rt_frame_buffer(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer);
-	inline void rt_mesh(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer);
+	inline void rt_shape(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *framebuffer);
+	inline void rt_framebuffer(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *framebuffer);
+	inline void rt_mesh(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *framebuffer);
 
 	Rect get_camera_view(float cam_x, float cam_y, float zoom, float screen_w,
 		float screen_h);

@@ -32,11 +32,11 @@ class Engine {
         ShaderManager *get_shader_manager();
         Scene *get_current_scene();
         Input *get_input();
-        FrameBuffer *get_frame_buffer();
+        FrameBuffer *get_framebuffer();
 
         float get_width(), get_height();
 
-        void set_frame_buffer(FrameBuffer *frame_buffer);
+        void set_framebuffer(FrameBuffer *framebuffer);
 
         void set_scene(Scene *scene);
         void start();
@@ -46,8 +46,8 @@ class Engine {
       private:
         float width, height;
 
-        FrameBuffer *current_frame_buffer;
-        FrameBuffer *default_frame_buffer = nullptr;
+        FrameBuffer *current_framebuffer;
+        FrameBuffer *default_framebuffer = nullptr;
         Scene *current_scene;
         Display *display;
         Camera *camera;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <SDL/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <iostream>
 #include <string>
@@ -9,6 +9,8 @@
 #include <vector>
 
 #include <glm/glm.hpp>
+
+struct Color;
 
 class Shader {
 public:
@@ -25,6 +27,7 @@ public:
 	void upload_vec2(const std::string &name, const glm::vec2 &value);
 	void upload_vec3(const std::string &name, const glm::vec3 &value);
 	void upload_vec4(const std::string &name, const glm::vec4 &value);
+	void upload_color(const std::string &name, const Color &value);
 	void upload_vec2_array(const std::string &name,
 		const std::vector<glm::vec2> &value);
 	void upload_vec3_array(const std::string &name,
