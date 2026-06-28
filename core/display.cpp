@@ -85,11 +85,13 @@ void Display::update_viewport(int win_width, int win_height) {
 
 update_viewport:
 	glViewport(viewport_x, viewport_y, viewport_width, viewport_height);
+	FrameBuffer::invalidate_bind_cache();
 	FrameBuffer::resize_camera_sized_framebuffers();
 }
 
 void Display::apply_screen_viewport() {
 	glViewport(viewport_x, viewport_y, viewport_width, viewport_height);
+	FrameBuffer::invalidate_bind_cache();
 }
 
 void Display::set_pixel_perfect_screen(bool enabled) {

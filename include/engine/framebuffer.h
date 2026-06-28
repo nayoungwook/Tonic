@@ -22,6 +22,8 @@ class FrameBuffer {
 
         void bind();
         void unbind();
+        static void bind_screen_framebuffer();
+        static void invalidate_bind_cache();
         void clear(float r = 0.0f, float g = 0.0f, float b = 0.0f,
                    float a = 1.0f);
         void resize(int width, int height);

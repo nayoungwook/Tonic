@@ -53,7 +53,7 @@ private:
 
 	inline void Scene::bind_frame_buffer(FrameBuffer *frame_buffer);
 
-	inline void rt_clear(Renderer *renderer, FrameBuffer *frame_buffer);
+	inline void rt_clear(Renderer *renderer);
 	inline void rt_shape(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer);
 	inline void rt_frame_buffer(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer);
 	inline void rt_mesh(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer);

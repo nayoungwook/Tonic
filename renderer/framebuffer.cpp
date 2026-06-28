@@ -18,6 +18,9 @@
 
 namespace {
 std::vector<FrameBuffer *> dynamic_framebuffers;
+unsigned cached_bound_fbo = static_cast<unsigned>(-1);
+int cached_viewport_width = -1;
+int cached_viewport_height = -1;
 
 void current_drawable_size(int &width, int &height) {
         SDL_Window *window = SDL_GL_GetCurrentWindow();
@@ -26,6 +29,22 @@ void current_drawable_size(int &width, int &height) {
         }
         width = std::max(1, width);
         height = std::max(1, height);
+}
+
+void bind_fbo(unsigned fbo) {
+        if (cached_bound_fbo == fbo)
+                return;
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        cached_bound_fbo = fbo;
+}
+
+void set_viewport(int width, int height) {
+        if (cached_viewport_width == width &&
+            cached_viewport_height == height)
+                return;
+        glViewport(0, 0, width, height);
+        cached_viewport_width = width;
+        cached_viewport_height = height;
 }
 }
 
@@ -92,6 +111,7 @@ void FrameBuffer::create(int width, int height) {
 
         glGenFramebuffers(1, &fbo);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        cached_bound_fbo = fbo;
 
         glGenTextures(1, &color_texture);
         glBindTexture(GL_TEXTURE_2D, color_texture);
@@ -120,17 +140,28 @@ void FrameBuffer::create(int width, int height) {
         }
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        cached_bound_fbo = 0;
+        cached_viewport_width = -1;
+        cached_viewport_height = -1;
 }
 
 void FrameBuffer::bind() {
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-        glViewport(0, 0, width, height);
+        bind_fbo(fbo);
+        set_viewport(width, height);
 }
 
-void FrameBuffer::unbind() { glBindFramebuffer(GL_FRAMEBUFFER, 0); }
+void FrameBuffer::unbind() { bind_screen_framebuffer(); }
+
+void FrameBuffer::bind_screen_framebuffer() { bind_fbo(0); }
+
+void FrameBuffer::invalidate_bind_cache() {
+        cached_bound_fbo = static_cast<unsigned>(-1);
+        cached_viewport_width = -1;
+        cached_viewport_height = -1;
+}
 
 void FrameBuffer::clear(float r, float g, float b, float a) {
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        bind();
         glClearColor(r, g, b, a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }

@@ -288,7 +288,7 @@ void Renderer::clear() {
 		frame_buffer->bind();
 	}
 	else {
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		FrameBuffer::bind_screen_framebuffer();
 	}
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

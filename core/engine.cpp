@@ -151,7 +151,6 @@ void Engine::start() {
 				set_frame_buffer(default_frame_buffer);
 				camera->begin_pixel_perfect_render();
 				default_frame_buffer->bind();
-				glViewport(0, 0, buffer_width, buffer_height);
 			}
 			else {
 				// Otherwise, restore the framebuffer to the camera resolution.
@@ -170,7 +169,7 @@ void Engine::start() {
 			}
 
 			// Ready to render in fbo 0
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			FrameBuffer::bind_screen_framebuffer();
 			display->apply_screen_viewport();
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
