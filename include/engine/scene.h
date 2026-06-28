@@ -33,12 +33,13 @@ private:
 	Shader *shader_cache = nullptr;
 	bool shader_cache_is_ui = false;
 	bool shader_cache_pixel_perfect = false;
+	FrameBuffer *shader_cache_frame_buffer = nullptr;
 	FrameBuffer *frame_buffer_cache = nullptr;
 	FrameBuffer *batch_frame_buffer = nullptr;
 	Texture *batch_texture = nullptr;
 	Shader *batch_shader = nullptr;
 	int texture_uniform_location = -1;
-	bool default_frame_buffer_bound = false;
+	bool screen_frame_buffer_bound = false;
 	int view_projection_uniform_location = -1;
 	int sprite_pixel_perfect_uniform_location = -1;
 	int batch_slot = 0;

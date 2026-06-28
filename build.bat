@@ -13,11 +13,11 @@ if errorlevel 1 (
 )
 
 if not exist "%BUILD_DIR%\CMakeCache.txt" (
-    cmake -S . -B "%BUILD_DIR%" -A x64
+    cmake -S . -B "%BUILD_DIR%" -G Ninja
 )
 
-cmake --build "%BUILD_DIR%" --config %CONFIG%
+cmake --build "%BUILD_DIR%"
 
-if exist .\game (
-    .\game.exe
+if exist .\Game.exe (
+    .\Game.exe
 )

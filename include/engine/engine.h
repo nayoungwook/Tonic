@@ -46,8 +46,8 @@ class Engine {
       private:
         float width, height;
 
-        FrameBuffer *frame_buffer;
-        FrameBuffer *pixel_frame_buffer = nullptr;
+        FrameBuffer *current_frame_buffer;
+        FrameBuffer *default_frame_buffer = nullptr;
         Scene *current_scene;
         Display *display;
         Camera *camera;

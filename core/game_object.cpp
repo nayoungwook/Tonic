@@ -5,6 +5,7 @@
 #include "engine/render_context.h"
 #include "engine/renderer.h"
 #include "engine/scene.h"
+#include "engine/shader_manager.h"
 #include "engine/texture.h"
 
 #include <GL/glew.h>
@@ -32,9 +33,12 @@ void GameObject::render() {
 		error("current scene is null");
 	}
 
-	Shader *render_shader = shader != nullptr
-		? shader
-		: this->engine->get_renderer()->get_shader();
+	Shader *render_shader = shader;
+	if (render_shader == nullptr) {
+		render_shader = mesh != nullptr
+			? this->engine->get_shader_manager()->get_shader("default")
+			: this->engine->get_renderer()->get_shader();
+	}
 	Vector render_position(position.x + render_offset_x,
 		position.y + render_offset_y, position.z);
 

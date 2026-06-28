@@ -2,6 +2,7 @@
 
 #include "engine/camera.h"
 #include "engine/error.h"
+#include "engine/framebuffer.h"
 
 #include <algorithm>
 #include <cmath>
@@ -40,8 +41,19 @@ void Display::update_viewport(int win_width, int win_height) {
 	width = std::max(1, win_width);
 	height = std::max(1, win_height);
 
-	if (pixel_perfect_screen && camera != nullptr &&
-		camera->is_pixel_perfect_enabled()) {
+	if (camera == nullptr) {
+		viewport_width = width;
+		viewport_height = height;
+		viewport_x = 0;
+		viewport_y = 0;
+
+		goto update_viewport;
+	}
+
+	bool pixel_perfect_enabled = pixel_perfect_screen && camera != nullptr &&
+		camera->is_pixel_perfect_enabled();
+
+	if (pixel_perfect_enabled) {
 		int render_width = camera->get_pixel_view_width();
 		int render_height = camera->get_pixel_view_height();
 		int scale = std::max(1,
@@ -51,7 +63,8 @@ void Display::update_viewport(int win_width, int win_height) {
 		viewport_height = render_height * scale;
 		viewport_x = (width - viewport_width) / 2;
 		viewport_y = (height - viewport_height) / 2;
-	} else if (camera != nullptr) {
+	}
+	else {
 		float target_aspect =
 			static_cast<float>(camera->get_width()) / camera->get_height();
 		float window_aspect = static_cast<float>(width) / height;
@@ -61,20 +74,18 @@ void Display::update_viewport(int win_width, int win_height) {
 			viewport_height = height;
 			viewport_x = (width - viewport_width) / 2;
 			viewport_y = 0;
-		} else {
+		}
+		else {
 			viewport_width = width;
 			viewport_height = static_cast<int>(width / target_aspect);
 			viewport_x = 0;
 			viewport_y = (height - viewport_height) / 2;
 		}
-	} else {
-		viewport_width = width;
-		viewport_height = height;
-		viewport_x = 0;
-		viewport_y = 0;
 	}
 
+update_viewport:
 	glViewport(viewport_x, viewport_y, viewport_width, viewport_height);
+	FrameBuffer::resize_camera_sized_framebuffers();
 }
 
 void Display::apply_screen_viewport() {

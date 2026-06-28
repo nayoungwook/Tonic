@@ -14,6 +14,7 @@ private:
 
 	Vector camera_target_position;
 	FrameBuffer *ui_frame_buffer = nullptr;
+	FrameBuffer *game_frame_buffer = nullptr;
 
 	const int MS = 100;
 	float rotation = 0;
@@ -35,10 +36,9 @@ public:
 
 		camera_target_position = Vector(0, 0);
 
-		this->engine->get_display()->set_pixel_perfect_screen(true);
-		this->engine->get_display()->configure_pixel_perfect_for_sprite(16, MS);
-
 		ui_frame_buffer = new FrameBuffer(false);
+		game_frame_buffer = new FrameBuffer(true);
+		game_frame_buffer->configure_pixel_perfect_for_sprite(16, MS);
 	}
 
 	void update() {
@@ -66,22 +66,25 @@ public:
 	void render() {
 		this->default_unlit->bind();
 
-		//this->engine->set_frame_buffer(ui_frame_buffer);
-		//renderer->clear();
-		//renderer->set_color(glm::vec4(1, 1, 0, 1));
-		//renderer->render_ui_font(font, "this is for test.", Vector(0, 0, 1), rotation);
+		this->engine->set_frame_buffer(ui_frame_buffer);
+		renderer->clear(0.0f, 0.0f, 0.0f, 0.0f);
+		renderer->set_color(glm::vec4(1, 1, 0, 1));
+		renderer->render_ui_font(font, "this is for test.", Vector(0, 0, 1), rotation);
 
-		//this->engine->set_frame_buffer(nullptr);
+		this->engine->set_frame_buffer(game_frame_buffer);
+		renderer->clear(0.05f, 0.05f, 0.07f, 1.0f);
 		renderer->set_color(glm::vec4(1, 1, 1, 1));
-		renderer->clear();
 		int width = 100, height = 100;
 		for (int i = 0; i < height; i++) {
 			for (int j = 0; j < width; j++) {
-				renderer->render_image(texture, Vector(-width * 0.5f + j * MS / 2, -height * 0.5f + i * MS, -j), MS, MS, rotation);
+				renderer->render_image(texture, Vector(-width * 0.5f + j * MS / 2, -height * 0.5f + i * MS, 2), MS, MS, rotation);
 			}
 		}
 
-		//renderer->render_ui_framebuffer(ui_frame_buffer, Vector(0, 0), camera->get_width(), camera->get_height());
+		this->engine->set_frame_buffer(nullptr);
+		renderer->clear(0.0f, 0.0f, 0.0f, 1.0f);
+		renderer->render_ui_framebuffer(game_frame_buffer, Vector(0, 0, 10), camera->get_width(), camera->get_height());
+		renderer->render_ui_framebuffer(ui_frame_buffer, Vector(0, 0, 11), camera->get_width(), camera->get_height());
 	}
 };
 

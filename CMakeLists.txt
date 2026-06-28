@@ -14,10 +14,19 @@ set(GAME_NAME Game)
 # ==========================================================
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY
+    ${CMAKE_CURRENT_SOURCE_DIR})
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG
-    ${CMAKE_CURRENT_SOURCE_DIR}/Debug)
+    ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE
+    ${CMAKE_CURRENT_SOURCE_DIR})
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO
+    ${CMAKE_CURRENT_SOURCE_DIR})
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL
     ${CMAKE_CURRENT_SOURCE_DIR})
 
 # ==========================================================
@@ -50,6 +59,7 @@ set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 set_target_properties(${GAME_NAME} PROPERTIES
+    VS_DEBUGGER_COMMAND "$<TARGET_FILE:${GAME_NAME}>"
     VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
@@ -84,6 +94,7 @@ target_compile_definitions(${GAME_NAME}
         $<$<CONFIG:Release>:NDEBUG>
         SDL_MAIN_HANDLED
         ENGINE_RESOURCE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/resources"
+        ENGINE_SHADER_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/shaders"
 )
 
 # ==========================================================

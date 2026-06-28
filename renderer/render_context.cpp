@@ -3,6 +3,7 @@
 #include "engine/framebuffer.h"
 
 #include <GL/glew.h>
+#include <iostream>
 
 RenderContext gen_render_context(FrameBuffer *frame_buffer, Texture *texture,
 	Shader *shader, const Vector &position, int slot,

@@ -30,8 +30,10 @@ public:
 	Mesh *mesh;
 	Shader *shader;
 	Vector position;
+	
 	glm::vec4 color;
 	glm::vec4 uv;
+
 	int slot;
 	unsigned raw_texture;
 	float width, height;

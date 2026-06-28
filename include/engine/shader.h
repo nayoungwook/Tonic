@@ -12,7 +12,7 @@
 
 class Shader {
 public:
-	Shader(const std::string &frag_path, const std::string &vert_path);
+	Shader(const std::string &vert_path, const std::string &frag_path);
 	~Shader();
 
 	void bind();
@@ -40,5 +40,5 @@ private:
 
 	void check_shader_compile(unsigned id, const std::string &name);
 	unsigned fragment, vertex, program;
-	void load_shader(const std::string &frag_path, const std::string &vert_path);
+	void load_shader(const std::string &vert_path, const std::string &frag_path);
 };

@@ -76,12 +76,12 @@ inline void Scene::bind_frame_buffer(FrameBuffer *frame_buffer) {
 	if (frame_buffer != nullptr) {
 		frame_buffer->bind();
 		frame_buffer_cache = frame_buffer;
-		default_frame_buffer_bound = false;
+		screen_frame_buffer_bound = false;
 	}
-	else if (!default_frame_buffer_bound) {
+	else if (!screen_frame_buffer_bound) {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		frame_buffer_cache = nullptr;
-		default_frame_buffer_bound = true;
+		screen_frame_buffer_bound = true;
 	}
 }
 
@@ -155,10 +155,11 @@ void Scene::flush_render_context() {
 	shader_cache = nullptr;
 	shader_cache_is_ui = false;
 	shader_cache_pixel_perfect = false;
+	shader_cache_frame_buffer = nullptr;
 	frame_buffer_cache = nullptr;
 
 	texture_uniform_location = -1;
-	default_frame_buffer_bound = false;
+	screen_frame_buffer_bound = false;
 	view_projection_uniform_location = -1;
 	sprite_pixel_perfect_uniform_location = -1;
 
@@ -181,9 +182,16 @@ void Scene::flush_render_context() {
 		bool object_pixel_perfect =
 			frame_buffer != nullptr && frame_buffer->is_pixel_perfect();
 
-		// If render context is UI, we only use projection becuase Camera won't be applied.
-		const glm::mat4 &view_projection =
+		// UI uses screen-space projection. World objects rendered into a
+		// pixel-perfect framebuffer use that framebuffer's pixel grid.
+		glm::mat4 view_projection =
 			rc.is_ui ? camera->get_projection() : camera->get_view_projection();
+		if (!rc.is_ui && object_pixel_perfect) {
+			view_projection = camera->get_pixel_view_projection(
+				static_cast<float>(frame_buffer->get_reference_width()),
+				static_cast<float>(frame_buffer->get_reference_height()),
+				frame_buffer->get_assets_pixels_per_unit());
+		}
 
 		if (rc.render_type == RT_CLEAR) {
 			this->rt_clear(renderer, frame_buffer);
@@ -205,13 +213,13 @@ void Scene::flush_render_context() {
 			continue;
 		}
 
-		// bound for default framebuffer
-		if (frame_buffer == nullptr && !default_frame_buffer_bound) {
+		// Bind the real OpenGL screen framebuffer.
+		if (frame_buffer == nullptr && !screen_frame_buffer_bound) {
 			flush_batch(renderer, instance_batch, batch_texture,
 				batch_slot);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			frame_buffer_cache = nullptr;
-			default_frame_buffer_bound = true;
+			screen_frame_buffer_bound = true;
 		}
 
 		// change frame buffer
@@ -221,12 +229,13 @@ void Scene::flush_render_context() {
 				batch_slot);
 			frame_buffer->bind();
 			frame_buffer_cache = frame_buffer;
-			default_frame_buffer_bound = false;
+			screen_frame_buffer_bound = false;
 		}
 
 		// update shader
 		if (shader_cache != shader || shader_cache_is_ui != rc.is_ui ||
-			shader_cache_pixel_perfect != object_pixel_perfect) {
+			shader_cache_pixel_perfect != object_pixel_perfect ||
+			shader_cache_frame_buffer != frame_buffer) {
 			flush_batch(renderer, instance_batch, batch_texture,
 				batch_slot);
 			shader->bind();
@@ -256,6 +265,7 @@ void Scene::flush_render_context() {
 			shader_cache = shader;
 			shader_cache_is_ui = rc.is_ui;
 			shader_cache_pixel_perfect = object_pixel_perfect;
+			shader_cache_frame_buffer = frame_buffer;
 		}
 
 		if (rc.render_type == RT_TEXTURE) {

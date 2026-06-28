@@ -6,6 +6,7 @@
 #include <SDL/SDL.h>
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <iostream>
 #include <vector>
@@ -158,6 +159,89 @@ FrameBuffer *FrameBuffer::set_pixel_perfect(bool pixel_perfect) {
         return this;
 }
 
+FrameBuffer *FrameBuffer::configure_pixel_perfect(float reference_width,
+        float reference_height, float assets_pixels_per_unit) {
+        if (reference_width <= 0.0f || reference_height <= 0.0f ||
+            assets_pixels_per_unit <= 0.0f)
+                return this;
+
+        this->reference_width = std::max(1,
+                static_cast<int>(std::round(reference_width)));
+        this->reference_height = std::max(1,
+                static_cast<int>(std::round(reference_height)));
+        this->assets_pixels_per_unit =
+                std::max(0.0001f, assets_pixels_per_unit);
+        set_pixel_perfect(true);
+        int old_width = width;
+        int old_height = height;
+        update_resolution_from_mode();
+        if (old_width != width || old_height != height)
+                create(width, height);
+        return this;
+}
+
+FrameBuffer *FrameBuffer::configure_pixel_perfect_for_sprite(
+        int sprite_pixel_size, float world_size) {
+        if (sprite_pixel_size <= 0 || world_size <= 0.0f)
+                return this;
+
+        int drawable_width = width;
+        int drawable_height = height;
+        current_drawable_size(drawable_width, drawable_height);
+        return configure_pixel_perfect(static_cast<float>(drawable_width),
+                static_cast<float>(drawable_height),
+                static_cast<float>(sprite_pixel_size) / world_size);
+}
+
+float FrameBuffer::get_world_units_per_pixel() const {
+        return 1.0f / std::max(0.0001f, assets_pixels_per_unit);
+}
+
+int FrameBuffer::get_pixel_view_width() const {
+        int source_width = reference_width > 0 ? reference_width : width;
+        return std::max(1, static_cast<int>(std::ceil(
+                static_cast<float>(source_width) * assets_pixels_per_unit)));
+}
+
+int FrameBuffer::get_pixel_view_height() const {
+        int source_height = reference_height > 0 ? reference_height : height;
+        return std::max(1, static_cast<int>(std::ceil(
+                static_cast<float>(source_height) * assets_pixels_per_unit)));
+}
+
+int FrameBuffer::get_pixel_buffer_width() const {
+        return get_pixel_view_width() + 1;
+}
+
+int FrameBuffer::get_pixel_buffer_height() const {
+        return get_pixel_view_height() + 1;
+}
+
+glm::vec4 FrameBuffer::get_pixel_source_uv(float camera_x,
+        float camera_y) const {
+        float units_per_pixel = get_world_units_per_pixel();
+        int source_width = reference_width > 0 ? reference_width : width;
+        int source_height = reference_height > 0 ? reference_height : height;
+
+        float left = camera_x - static_cast<float>(source_width) * 0.5f;
+        float bottom = camera_y - static_cast<float>(source_height) * 0.5f;
+        float snapped_left = std::floor(left / units_per_pixel) *
+                units_per_pixel;
+        float snapped_bottom = std::floor(bottom / units_per_pixel) *
+                units_per_pixel;
+        float frac_x = (left - snapped_left) / units_per_pixel;
+        float frac_y = (bottom - snapped_bottom) / units_per_pixel;
+
+        float buffer_width = static_cast<float>(get_pixel_buffer_width());
+        float buffer_height = static_cast<float>(get_pixel_buffer_height());
+        float view_width = static_cast<float>(get_pixel_view_width());
+        float view_height = static_cast<float>(get_pixel_view_height());
+
+        return glm::vec4(frac_x / buffer_width, frac_y / buffer_height,
+                (frac_x + view_width) / buffer_width,
+                (frac_y + view_height) / buffer_height);
+}
+
 void FrameBuffer::update_resolution_from_mode() {
         if (size_mode == SizeMode::FIXED)
                 return;
@@ -165,8 +249,18 @@ void FrameBuffer::update_resolution_from_mode() {
         int drawable_width = width;
         int drawable_height = height;
         current_drawable_size(drawable_width, drawable_height);
-        width = drawable_width;
-        height = drawable_height;
+        if (reference_width <= 0)
+                reference_width = drawable_width;
+        if (reference_height <= 0)
+                reference_height = drawable_height;
+
+        if (pixel_perfect) {
+                width = get_pixel_buffer_width();
+                height = get_pixel_buffer_height();
+        } else {
+                width = drawable_width;
+                height = drawable_height;
+        }
 }
 
 void FrameBuffer::register_dynamic() {
@@ -190,9 +284,13 @@ void FrameBuffer::resize_camera_sized_framebuffers() {
         for (FrameBuffer *framebuffer : dynamic_framebuffers) {
                 if (framebuffer == nullptr)
                         continue;
-                int new_width = framebuffer->width;
-                int new_height = framebuffer->height;
-                current_drawable_size(new_width, new_height);
-                framebuffer->resize(new_width, new_height);
+                int old_width = framebuffer->width;
+                int old_height = framebuffer->height;
+                framebuffer->update_resolution_from_mode();
+                if (old_width != framebuffer->width ||
+                    old_height != framebuffer->height) {
+                        framebuffer->create(framebuffer->width,
+                                framebuffer->height);
+                }
         }
 }

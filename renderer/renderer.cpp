@@ -20,8 +20,8 @@ Renderer::Renderer(Engine *engine, Camera *camera, Shader *shader)
 	: engine(engine), camera(camera), shader(shader) {
 	unsigned char white[] = { 255, 255, 255, 255 };
 	white_texture = new Texture(1, 1, white);
-	shape_shader = new Shader("shaders/shape.frag", "shaders/shape.vert");
-	quad_shader = new Shader("shaders/quad.frag", "shaders/quad.vert");
+	shape_shader = new Shader("shaders/shape.vert", "shaders/shape.frag");
+	quad_shader = new Shader("shaders/framebuffer.vert", "shaders/framebuffer.frag");
 	init_quad();
 }
 
@@ -167,6 +167,14 @@ void Renderer::render_framebuffer_part(FrameBuffer *source,
 	RenderContext rc = gen_framebuffer_render_context(engine->get_frame_buffer(),
 		source, position, rotation, width, height, color, is_ui);
 	rc.uv = uv;
+	if (source->is_pixel_perfect() &&
+		std::abs(uv.x) < 0.0001f &&
+		std::abs(uv.y) < 0.0001f &&
+		std::abs(uv.z - 1.0f) < 0.0001f &&
+		std::abs(uv.w - 1.0f) < 0.0001f) {
+		rc.uv = source->get_pixel_source_uv(camera->position.x,
+			camera->position.y);
+	}
 	engine->get_current_scene()->add_render_context(rc);
 }
 
@@ -378,7 +386,8 @@ void Renderer::draw_mesh(const RenderContext &rc, const glm::mat4 &vp) {
 	model = glm::scale(model, glm::vec3(rc.width, rc.height, 1.0f));
 
 	rc.shader->bind();
-	rc.shader->upload_mat4("uViewProjection", vp);
+	rc.shader->upload_mat4("uView", glm::mat4(1.0f));
+	rc.shader->upload_mat4("uProjection", vp);
 	rc.shader->upload_mat4("uModel", model);
 	rc.shader->upload_vec4("uColor", rc.color);
 

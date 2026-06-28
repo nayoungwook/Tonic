@@ -81,7 +81,43 @@ const int Camera::get_base_height() const { return base_height; }
 
 const glm::mat4 &Camera::get_view_projection() { return view_projection; }
 
+const glm::mat4 &Camera::get_view() const { return view; }
+
 const glm::mat4 &Camera::get_projection() const { return projection; }
+
+glm::mat4 Camera::get_pixel_view_projection(float reference_width,
+	float reference_height, float assets_pixels_per_unit) const {
+	assets_pixels_per_unit = std::max(0.0001f, assets_pixels_per_unit);
+	float units_per_pixel = 1.0f / assets_pixels_per_unit;
+	int pixel_buffer_width = std::max(1, static_cast<int>(std::ceil(
+		reference_width * assets_pixels_per_unit))) + 1;
+	int pixel_buffer_height = std::max(1, static_cast<int>(std::ceil(
+		reference_height * assets_pixels_per_unit))) + 1;
+	float projection_width =
+		static_cast<float>(pixel_buffer_width) * units_per_pixel;
+	float projection_height =
+		static_cast<float>(pixel_buffer_height) * units_per_pixel;
+
+	float left = position.x - reference_width * 0.5f;
+	float bottom = position.y - reference_height * 0.5f;
+	float snapped_left = std::floor(left / units_per_pixel) *
+		units_per_pixel;
+	float snapped_bottom = std::floor(bottom / units_per_pixel) *
+		units_per_pixel;
+	Vector snapped_center(snapped_left + projection_width * 0.5f,
+		snapped_bottom + projection_height * 0.5f, position.z);
+
+	glm::mat4 pixel_projection =
+		build_projection(projection_width, projection_height);
+	glm::mat4 pixel_view(1.0f);
+	pixel_view = glm::scale(pixel_view, glm::vec3(zoom, zoom, 1.0f));
+	pixel_view = glm::rotate(pixel_view, -rotation,
+		glm::vec3(0.0f, 0.0f, 1.0f));
+	pixel_view = glm::translate(pixel_view,
+		glm::vec3(-snapped_center.x, -snapped_center.y, 0.0f));
+
+	return pixel_projection * pixel_view;
+}
 
 void Camera::configure_pixel_perfect(float reference_width,
 	float reference_height, float assets_pixels_per_unit) {
@@ -151,8 +187,10 @@ int Camera::get_pixel_buffer_height() const {
 Vector Camera::get_pixel_snapped_center(float projection_width,
 	float projection_height) const {
 	float units_per_pixel = get_world_units_per_pixel();
+
 	float left = position.x - width * 0.5f;
 	float bottom = position.y - height * 0.5f;
+
 	float snapped_left = std::floor(left / units_per_pixel) *
 		units_per_pixel;
 	float snapped_bottom = std::floor(bottom / units_per_pixel) *

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 #include <vector>
 
 class FrameBuffer {
@@ -32,6 +34,19 @@ class FrameBuffer {
         float get_resolution_y() const { return static_cast<float>(height); }
         bool is_pixel_perfect() const { return pixel_perfect; }
         FrameBuffer *set_pixel_perfect(bool pixel_perfect);
+        FrameBuffer *configure_pixel_perfect(float reference_width,
+                float reference_height, float assets_pixels_per_unit);
+        FrameBuffer *configure_pixel_perfect_for_sprite(int sprite_pixel_size,
+                float world_size);
+        float get_assets_pixels_per_unit() const { return assets_pixels_per_unit; }
+        float get_world_units_per_pixel() const;
+        int get_pixel_view_width() const;
+        int get_pixel_view_height() const;
+        int get_pixel_buffer_width() const;
+        int get_pixel_buffer_height() const;
+        int get_reference_width() const { return reference_width > 0 ? reference_width : width; }
+        int get_reference_height() const { return reference_height > 0 ? reference_height : height; }
+        glm::vec4 get_pixel_source_uv(float camera_x, float camera_y) const;
 
         void create(int width, int height);
         void upload_texture(int tex);
@@ -50,6 +65,9 @@ class FrameBuffer {
 
         int width = 0;
         int height = 0;
+        int reference_width = 0;
+        int reference_height = 0;
+        float assets_pixels_per_unit = 1.0f;
         bool pixel_perfect = false;
         bool disposed = false;
         SizeMode size_mode = SizeMode::FIXED;

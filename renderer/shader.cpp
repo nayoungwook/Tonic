@@ -5,8 +5,17 @@
 
 static unsigned bound_shader_program = 0;
 
-Shader::Shader(const std::string &frag_path, const std::string &vert_path) {
-	load_shader(frag_path, vert_path);
+namespace {
+bool ends_with(const std::string &value, const std::string &suffix) {
+	if (value.size() < suffix.size())
+		return false;
+	return value.compare(value.size() - suffix.size(), suffix.size(),
+		suffix) == 0;
+}
+}
+
+Shader::Shader(const std::string &vert_path, const std::string &frag_path) {
+	load_shader(vert_path, frag_path);
 }
 
 Shader::~Shader() {
@@ -116,23 +125,30 @@ void Shader::upload_mat4(const std::string &name, const glm::mat4 &value) {
 		glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
 }
 
-void Shader::load_shader(const std::string &frag_path,
-	const std::string &vert_path) {
-	std::string vert_str = read_file(vert_path);
+void Shader::load_shader(const std::string &vert_path,
+	const std::string &frag_path) {
+	std::string actual_vert_path = vert_path;
+	std::string actual_frag_path = frag_path;
+	if (ends_with(vert_path, ".frag") && ends_with(frag_path, ".vert")) {
+		actual_vert_path = frag_path;
+		actual_frag_path = vert_path;
+	}
+
+	std::string vert_str = read_file(actual_vert_path);
 	const char *vert = vert_str.c_str();
 
-	std::string frag_str = read_file(frag_path);
+	std::string frag_str = read_file(actual_frag_path);
 	const char *frag = frag_str.c_str();
 
 	unsigned vertex_shader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertex_shader, 1, &vert, nullptr);
 	glCompileShader(vertex_shader);
-	check_shader_compile(vertex_shader, vert_path);
+	check_shader_compile(vertex_shader, actual_vert_path);
 
 	unsigned fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(fragment_shader, 1, &frag, nullptr);
 	glCompileShader(fragment_shader);
-	check_shader_compile(fragment_shader, frag_path);
+	check_shader_compile(fragment_shader, actual_frag_path);
 
 	program = glCreateProgram();
 	glAttachShader(program, vertex_shader);

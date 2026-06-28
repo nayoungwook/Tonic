@@ -14,7 +14,10 @@ public:
 	float rotation = 0.0f;
 
 	const glm::mat4 &get_view_projection();
+	const glm::mat4 &get_view() const;
 	const glm::mat4 &get_projection() const;
+	glm::mat4 get_pixel_view_projection(float reference_width,
+		float reference_height, float assets_pixels_per_unit) const;
 	const int get_width() const;
 	const int get_height() const;
 	const int get_base_width() const;
