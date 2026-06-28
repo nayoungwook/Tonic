@@ -4,72 +4,121 @@ project(Engine)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+# ==========================================================
+# Executable Name
+# ==========================================================
+set(GAME_NAME Game)
+
+# ==========================================================
+# Output Directories
+# ==========================================================
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-foreach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
-    string(TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG)
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG}
-        ${CMAKE_BINARY_DIR}/bin/${OUTPUTCONFIG})
-endforeach()
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG
+    ${CMAKE_CURRENT_SOURCE_DIR}/Debug)
 
-file(GLOB_RECURSE ENGINE_SOURCES
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE
+    ${CMAKE_CURRENT_SOURCE_DIR})
+
+# ==========================================================
+# Source Files
+# ==========================================================
+file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
     core/*.cpp
     error/*.cpp
     renderer/*.cpp
     util/*.cpp
 )
 
-file(GLOB TEST_SOURCES
+file(GLOB TEST_SOURCES CONFIGURE_DEPENDS
     test/*.cpp
 )
 
-file(GLOB_RECURSE GAME_SOURCES
-)
-
-add_executable(engine_test
+# ==========================================================
+# Executable
+# ==========================================================
+add_executable(${GAME_NAME}
     ${ENGINE_SOURCES}
     ${TEST_SOURCES}
-    ${GAME_SOURCES}
 )
 
-target_include_directories(engine_test
+# ==========================================================
+# Visual Studio
+# ==========================================================
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    PROPERTY VS_STARTUP_PROJECT ${GAME_NAME}
+)
+
+set_target_properties(${GAME_NAME} PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+# ==========================================================
+# Include Directories
+# ==========================================================
+target_include_directories(${GAME_NAME}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+# ==========================================================
+# Libraries
+# ==========================================================
 set(LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
 find_package(OpenGL REQUIRED)
 
-target_link_libraries(engine_test
+target_link_libraries(${GAME_NAME}
     PRIVATE
         OpenGL::GL
         ${LIB_DIR}/glew32.lib
         ${LIB_DIR}/SDL2.lib
-        ${LIB_DIR}/SDL2main.lib
 )
 
-target_compile_definitions(engine_test
+# ==========================================================
+# Compile Definitions
+# ==========================================================
+target_compile_definitions(${GAME_NAME}
     PRIVATE
         $<$<CONFIG:Debug>:DEBUG_MODE>
         $<$<CONFIG:Release>:NDEBUG>
+        SDL_MAIN_HANDLED
+        ENGINE_RESOURCE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/resources"
 )
 
-add_custom_command(TARGET engine_test POST_BUILD
+# ==========================================================
+# Compiler Options
+# ==========================================================
+if(MSVC)
+
+    target_compile_options(${GAME_NAME} PRIVATE
+        /EHsc
+        $<$<CONFIG:Release>:/O2 /Oi /Ot /GL>
+    )
+
+    target_link_options(${GAME_NAME} PRIVATE
+        $<$<CONFIG:Release>:/LTCG /INCREMENTAL:NO>
+    )
+
+else()
+
+    target_compile_options(${GAME_NAME} PRIVATE
+        $<$<CONFIG:Release>:-O3 -DNDEBUG>
+    )
+
+endif()
+
+# ==========================================================
+# Copy DLLs
+# ==========================================================
+add_custom_command(TARGET ${GAME_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${LIB_DIR}/SDL2.dll
-        $<TARGET_FILE_DIR:engine_test>
+        $<TARGET_FILE_DIR:${GAME_NAME}>
 )
 
-add_custom_command(TARGET engine_test POST_BUILD
+add_custom_command(TARGET ${GAME_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${LIB_DIR}/glew32.dll
-        $<TARGET_FILE_DIR:engine_test>
-)
-
-add_custom_command(TARGET engine_test POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/shaders
-        $<TARGET_FILE_DIR:engine_test>/shaders
+        $<TARGET_FILE_DIR:${GAME_NAME}>
 )

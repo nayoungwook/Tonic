@@ -9,6 +9,8 @@
 #include "engine/shader.h"
 #include "engine/shader_manager.h"
 
+#include <algorithm>
+
 void Engine::init_engine(const std::string &title, int width, int height) {
 
         if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -23,8 +25,10 @@ void Engine::init_engine(const std::string &title, int width, int height) {
         this->width = width;
         this->height = height;
 
-        Display *display = new Display(title, width, height);
         Camera *camera = new Camera((float)width, (float)height);
+        Display *display = new Display(title, width, height);
+        display->set_camera(camera);
+        display->update_viewport(width, height);
         Input *input = new Input();
 
         ShaderManager *shader_manager = new ShaderManager();
@@ -81,6 +85,10 @@ void Engine::start() {
         double fps_timer = 0.0;
 
         while (running) {
+                renderer->begin_frame();
+                if (current_scene != nullptr) {
+                        current_scene->start_frame();
+                }
                 input->begin_new_frame();
 
                 while (SDL_PollEvent(&event)) {
@@ -118,8 +126,53 @@ void Engine::start() {
                 }
 
                 if (current_scene != nullptr) {
+                        bool pixel_perfect_screen =
+                            display->is_pixel_perfect_screen() &&
+                            camera->is_pixel_perfect_enabled();
+
+                        FrameBuffer *previous_frame_buffer = frame_buffer;
+
+                        if (pixel_perfect_screen) {
+                                int buffer_width =
+                                    camera->get_pixel_buffer_width();
+                                int buffer_height =
+                                    camera->get_pixel_buffer_height();
+
+                                if (pixel_frame_buffer == nullptr) {
+                                        pixel_frame_buffer = new FrameBuffer(
+                                            buffer_width, buffer_height, true);
+                                } else {
+                                        pixel_frame_buffer->set_pixel_perfect(
+                                            true);
+                                        pixel_frame_buffer->resize(
+                                            buffer_width, buffer_height);
+                                }
+
+                                set_frame_buffer(pixel_frame_buffer);
+                                camera->begin_pixel_perfect_render();
+                                pixel_frame_buffer->bind();
+                                glViewport(0, 0, buffer_width,
+                                    buffer_height);
+                                renderer->clear();
+                        }
+
                         current_scene->render();
                         current_scene->flush_render_context();
+
+                        if (pixel_perfect_screen) {
+                                camera->end_pixel_perfect_render();
+                                set_frame_buffer(nullptr);
+                                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                                display->apply_screen_viewport();
+                                renderer->clear();
+                                renderer->render_framebuffer_part(
+                                    pixel_frame_buffer, Vector(0, 0),
+                                    camera->get_width(),
+                                    camera->get_height(),
+                                    camera->get_pixel_source_uv(), true);
+                                current_scene->flush_render_context();
+                                set_frame_buffer(previous_frame_buffer);
+                        }
                 }
 
                 frames++;

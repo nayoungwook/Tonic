@@ -2,12 +2,19 @@
 
 #include <iostream>
 
+#include "engine/camera.h"
 #include "engine/display.h"
 #include "engine/renderer.h"
 #include "engine/scene.h"
 #include "engine/shader.h"
 #include "engine/shader_manager.h"
 #include "engine/texture.h"
+#include "engine/input.h"
+#include "engine/sound.h"
+#include "engine/mesh.h"
+#include "engine/sprite.h"
+#include "engine/ttfont.h"
+#include "engine/screen_quad.h"
 
 class Display;
 class Camera;
@@ -40,6 +47,7 @@ class Engine {
         float width, height;
 
         FrameBuffer *frame_buffer;
+        FrameBuffer *pixel_frame_buffer = nullptr;
         Scene *current_scene;
         Display *display;
         Camera *camera;

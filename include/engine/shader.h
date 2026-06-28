@@ -4,20 +4,39 @@
 #include <SDL/SDL.h>
 
 #include <iostream>
+#include <string>
 #include <unordered_map>
+#include <vector>
+
+#include <glm/glm.hpp>
 
 class Shader {
 public:
 	Shader(const std::string &frag_path, const std::string &vert_path);
+	~Shader();
 
 	void bind();
+	void unbind();
 
 	const unsigned get_program() const;
-	unsigned get_uniform_location(const std::string &name);
+	int get_uniform_location(const std::string &name);
+	void upload_int(const std::string &name, int value);
+	void upload_float(const std::string &name, float value);
+	void upload_vec2(const std::string &name, const glm::vec2 &value);
+	void upload_vec3(const std::string &name, const glm::vec3 &value);
+	void upload_vec4(const std::string &name, const glm::vec4 &value);
+	void upload_vec2_array(const std::string &name,
+		const std::vector<glm::vec2> &value);
+	void upload_vec3_array(const std::string &name,
+		const std::vector<glm::vec3> &value);
+	void upload_float_array(const std::string &name,
+		const std::vector<float> &value);
+	void upload_mat3(const std::string &name, const glm::mat3 &value);
+	void upload_mat4(const std::string &name, const glm::mat4 &value);
 
 private:
 
-	std::unordered_map<std::string, unsigned int> uniform_cache;
+	std::unordered_map<std::string, int> uniform_cache;
 
 	void check_shader_compile(unsigned id, const std::string &name);
 	unsigned fragment, vertex, program;

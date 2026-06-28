@@ -1,13 +1,23 @@
 @echo off
+setlocal
 
 set CONFIG=Debug
+set BUILD_DIR=build\cmake
+set VSDEVCMD=%ProgramFiles%\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat
 
-if not exist build (
-    cmake -B build -S .
+where cl >nul 2>nul
+if errorlevel 1 (
+    if exist "%VSDEVCMD%" (
+        call "%VSDEVCMD%" -arch=x64 -host_arch=x64
+    )
 )
 
-cmake --build build --config %CONFIG%
+if not exist "%BUILD_DIR%\CMakeCache.txt" (
+    cmake -S . -B "%BUILD_DIR%" -A x64
+)
 
-if exist .\build\bin\%CONFIG%\engine_test.exe (
-    .\build\bin\%CONFIG%\engine_test.exe
+cmake --build "%BUILD_DIR%" --config %CONFIG%
+
+if exist .\game (
+    .\game.exe
 )

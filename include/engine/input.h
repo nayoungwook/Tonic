@@ -22,6 +22,8 @@ public:
     // mouse position
     int get_mouse_x() const;
     int get_mouse_y() const;
+    float get_ui_mouse_x() const;
+    float get_ui_mouse_y() const;
 
     // mouse wheel
     int get_mouse_wheel_x() const;
@@ -36,6 +38,8 @@ private:
 
     int mouse_x = 0;
     int mouse_y = 0;
+    float ui_mouse_x = 0.0f;
+    float ui_mouse_y = 0.0f;
 
     int wheel_x = 0;
     int wheel_y = 0;

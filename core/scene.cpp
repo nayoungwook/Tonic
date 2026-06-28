@@ -11,118 +11,363 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <functional>
 
 #include "glm/glm.hpp"
 #include <glm/gtc/type_ptr.hpp>
 
-Scene::Scene(Engine *engine) : engine(engine) {}
+Scene::Scene(Engine *engine) : engine(engine) {
+	render_context_queue.reserve(65536);
+	instance_batch.reserve(65536);
+}
 
 Engine *Scene::get_engine() { return engine; }
+Rect Scene::get_camera_view(float cam_x,
+	float cam_y,
+	float zoom,
+	float screen_w,
+	float screen_h)
+{
+	const float half_w = screen_w / zoom;
+	const float half_h = screen_h / zoom;
 
-Rect Scene::get_camera_view(float cam_x, float cam_y, float screen_w,
-                            float screen_h) {
-        Rect view;
-        view.left = cam_x - screen_w * 0.5f;
-        view.right = cam_x + screen_w * 0.5f;
-        view.bottom = cam_y - screen_h * 0.5f;
-        view.top = cam_y + screen_h * 0.5f;
-        return view;
+	Rect view;
+	view.left = cam_x - half_w;
+	view.right = cam_x + half_w;
+	view.bottom = cam_y - half_h;
+	view.top = cam_y + half_h;
+
+	return view;
 }
 
 Rect Scene::compute_object_aabb_fast(const RenderContext &rc) {
-        float hw = rc.width * 0.5f;
-        float hh = rc.height * 0.5f;
+	float hw = rc.width * 0.5f;
+	float hh = rc.height * 0.5f;
 
-        Rect r;
-        r.left = rc.position.x - hw;
-        r.right = rc.position.x + hw;
-        r.bottom = rc.position.y - hh;
-        r.top = rc.position.y + hh;
+	Rect r;
+	r.left = rc.position.x - hw;
+	r.right = rc.position.x + hw;
+	r.bottom = rc.position.y - hh;
+	r.top = rc.position.y + hh;
 
-        return r;
+	return r;
 }
 
 inline bool Scene::intersects(const Rect &a, const Rect &b) {
-        return !(a.right < b.left || a.left > b.right || a.top < b.bottom ||
-                 a.bottom > b.top);
+	return !(a.right < b.left || a.left > b.right || a.top < b.bottom ||
+		a.bottom > b.top);
+}
+
+void Scene::flush_batch(Renderer *renderer,
+	std::vector<TextureInstance> &instance_batch,
+	Texture *batch_texture, int &batch_slot) {
+	if (instance_batch.empty())
+		return;
+
+	if (batch_slot >= 0)
+		batch_texture->set_atlas(batch_slot);
+	batch_texture->render_instanced(
+		renderer, instance_batch.data(),
+		static_cast<int>(instance_batch.size()));
+	instance_batch.clear();
+}
+
+inline void Scene::bind_frame_buffer(FrameBuffer *frame_buffer) {
+	if (frame_buffer != nullptr) {
+		frame_buffer->bind();
+		frame_buffer_cache = frame_buffer;
+		default_frame_buffer_bound = false;
+	}
+	else if (!default_frame_buffer_bound) {
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		frame_buffer_cache = nullptr;
+		default_frame_buffer_bound = true;
+	}
+}
+
+inline void Scene::rt_clear(Renderer *renderer, FrameBuffer *frame_buffer) {
+	flush_batch(renderer, instance_batch, batch_texture,
+		batch_slot);
+	bind_frame_buffer(frame_buffer);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+inline void Scene::rt_shape(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer) {
+	flush_batch(renderer, instance_batch, batch_texture,
+		batch_slot);
+	bind_frame_buffer(frame_buffer);
+	glBlendFunc(rc.blend_source, rc.blend_destination);
+	renderer->draw_shape(rc, view_projection);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+inline void Scene::rt_frame_buffer(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer) {
+	flush_batch(renderer, instance_batch, batch_texture,
+		batch_slot);
+	bind_frame_buffer(frame_buffer);
+	glBlendFunc(rc.blend_source, rc.blend_destination);
+	renderer->draw_raw_texture(rc.raw_texture, rc, view_projection);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+inline void Scene::rt_mesh(const RenderContext &rc, const glm::mat4 &view_projection, Renderer *renderer, FrameBuffer *frame_buffer) {
+	flush_batch(renderer, instance_batch, batch_texture,
+		batch_slot);
+	bind_frame_buffer(frame_buffer);
+	glBlendFunc(rc.blend_source, rc.blend_destination);
+	renderer->draw_mesh(rc, view_projection);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void Scene::flush_render_context() {
-        if (render_context_queue.empty())
-                return;
+	if (render_context_queue.empty())
+		return;
 
-        std::sort(render_context_queue.begin(), render_context_queue.end(),
-                  [](const RenderContext &a, const RenderContext &b) {
-                          return a.z_order < b.z_order;
-                  });
+	// Render Context batch sort order
+	// z_order , render_type (RT_Image, RT_Mesh...), is_ui, frame_buffer, shader, texture, slot
+	if (render_context_queue_needs_sort) {
+		std::stable_sort(
+			render_context_queue.begin(), render_context_queue.end(),
+			[](const RenderContext &a, const RenderContext &b) {
+				if (a.position.z != b.position.z)
+					return a.position.z < b.position.z;
+				if (a.render_type != b.render_type)
+					return a.render_type < b.render_type;
+				if (a.is_ui != b.is_ui)
+					return a.is_ui < b.is_ui;
+				if (a.frame_buffer != b.frame_buffer)
+					return std::less<FrameBuffer *>()(
+						a.frame_buffer, b.frame_buffer);
+				if (a.shader != b.shader)
+					return std::less<Shader *>()(a.shader,
+						b.shader);
+				if (a.texture != b.texture)
+					return std::less<Texture *>()(a.texture,
+						b.texture);
+				return a.slot < b.slot;
+			});
+	}
 
-        Camera *camera = engine->get_camera();
-        Renderer *renderer = engine->get_renderer();
+	Camera *camera = engine->get_camera();
+	Renderer *renderer = engine->get_renderer();
 
-        camera->calculate_matrix();
+	// cache for shaders and framebuffer
+	shader_cache = nullptr;
+	shader_cache_is_ui = false;
+	shader_cache_pixel_perfect = false;
+	frame_buffer_cache = nullptr;
 
-        Shader *shader_cache = nullptr;
+	texture_uniform_location = -1;
+	default_frame_buffer_bound = false;
+	view_projection_uniform_location = -1;
+	sprite_pixel_perfect_uniform_location = -1;
 
-        for (const RenderContext &rc : render_context_queue) {
+	// batch data
+	batch_frame_buffer = nullptr;
+	batch_texture = nullptr;
+	batch_shader = nullptr;
+	batch_slot = 0;
+	batch_is_ui = false;
+	batch_pixel_perfect = false;
+	batch_blend_source = GL_SRC_ALPHA;
+	batch_blend_destination = GL_ONE_MINUS_SRC_ALPHA;
 
-                Shader *shader = rc.shader;
-                FrameBuffer *frame_buffer = rc.frame_buffer;
+	camera->calculate_matrix();
 
-                if (frame_buffer == nullptr) {
-                        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                }
+	for (const RenderContext &rc : render_context_queue) {
 
-                if (frame_buffer != nullptr) {
-                        frame_buffer->bind();
-                }
+		Shader *shader = rc.shader;
+		FrameBuffer *frame_buffer = rc.frame_buffer;
+		bool object_pixel_perfect =
+			frame_buffer != nullptr && frame_buffer->is_pixel_perfect();
 
-                glm::mat4 model(1.0f);
-                model = glm::translate(
-                    model, glm::vec3(rc.position.x, rc.position.y, 0));
-                model = glm::rotate(model, rc.rotation, glm::vec3(0, 0, 1));
-                model = glm::scale(model, glm::vec3(rc.width, rc.height, 1.0f));
+		// If render context is UI, we only use projection becuase Camera won't be applied.
+		const glm::mat4 &view_projection =
+			rc.is_ui ? camera->get_projection() : camera->get_view_projection();
 
-                if (shader_cache != shader) {
-                        glUniform1i(shader->get_uniform_location("uTexture"),
-                                    0);
-                        glUniformMatrix4fv(
-                            shader->get_uniform_location("uViewProjection"), 1,
-                            GL_FALSE,
-                            glm::value_ptr(camera->get_view_projection()));
-                        renderer->set_shader(shader);
-                        shader_cache = shader;
-                }
-                rc.texture->set_atlas(rc.slot);
+		if (rc.render_type == RT_CLEAR) {
+			this->rt_clear(renderer, frame_buffer);
+			continue;
+		}
 
-                switch (rc.render_type) {
-                case RT_TEXTURE:
-                        rc.texture->render(renderer, model);
-                        break;
-                }
-        }
+		if (rc.render_type == RT_SHAPE) {
+			this->rt_shape(rc, view_projection, renderer, frame_buffer);
+			continue;
+		}
 
-        render_context_queue.clear();
+		if (rc.render_type == RT_FRAMEBUFFER) {
+			this->rt_frame_buffer(rc, view_projection, renderer, frame_buffer);
+			continue;
+		}
+
+		if (rc.render_type == RT_MESH) {
+			this->rt_mesh(rc, view_projection, renderer, frame_buffer);
+			continue;
+		}
+
+		// bound for default framebuffer
+		if (frame_buffer == nullptr && !default_frame_buffer_bound) {
+			flush_batch(renderer, instance_batch, batch_texture,
+				batch_slot);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			frame_buffer_cache = nullptr;
+			default_frame_buffer_bound = true;
+		}
+
+		// change frame buffer
+		if (frame_buffer != nullptr &&
+			frame_buffer_cache != frame_buffer) {
+			flush_batch(renderer, instance_batch, batch_texture,
+				batch_slot);
+			frame_buffer->bind();
+			frame_buffer_cache = frame_buffer;
+			default_frame_buffer_bound = false;
+		}
+
+		// update shader
+		if (shader_cache != shader || shader_cache_is_ui != rc.is_ui ||
+			shader_cache_pixel_perfect != object_pixel_perfect) {
+			flush_batch(renderer, instance_batch, batch_texture,
+				batch_slot);
+			shader->bind();
+			texture_uniform_location =
+				shader->get_uniform_location("uTexture");
+			view_projection_uniform_location =
+				shader->get_uniform_location("uViewProjection");
+			sprite_pixel_perfect_uniform_location =
+				shader->get_uniform_location("uSpritePixelPerfect");
+
+			if (texture_uniform_location != -1) {
+				glUniform1i(texture_uniform_location, 0);
+			}
+
+			if (sprite_pixel_perfect_uniform_location != -1) {
+				glUniform1i(sprite_pixel_perfect_uniform_location,
+					object_pixel_perfect ? 1 : 0);
+			}
+
+			if (view_projection_uniform_location != -1) {
+				glUniformMatrix4fv(
+					view_projection_uniform_location, 1,
+					GL_FALSE,
+					glm::value_ptr(view_projection));
+			}
+			renderer->set_shader(shader);
+			shader_cache = shader;
+			shader_cache_is_ui = rc.is_ui;
+			shader_cache_pixel_perfect = object_pixel_perfect;
+		}
+
+		if (rc.render_type == RT_TEXTURE) {
+			bool is_batch_changed =
+				batch_texture != rc.texture ||
+				batch_shader != shader ||
+				batch_frame_buffer != frame_buffer ||
+				batch_slot != rc.slot ||
+				batch_is_ui != rc.is_ui ||
+				batch_pixel_perfect != object_pixel_perfect ||
+				batch_blend_source != rc.blend_source ||
+				batch_blend_destination != rc.blend_destination;
+
+			if (is_batch_changed) {
+				flush_batch(renderer, instance_batch,
+					batch_texture, batch_slot);
+
+				// cache batch data.
+				batch_texture = rc.texture;
+				batch_shader = shader;
+				batch_frame_buffer = frame_buffer;
+				batch_slot = rc.slot;
+				batch_is_ui = rc.is_ui;
+				batch_pixel_perfect = object_pixel_perfect;
+				batch_blend_source = rc.blend_source;
+				batch_blend_destination = rc.blend_destination;
+				glBlendFunc(batch_blend_source,
+					batch_blend_destination);
+			}
+
+			instance_batch.push_back({ {rc.position.x, rc.position.y,
+									   rc.width, rc.height},
+									  rc.color,
+									  rc.texture->get_atlas_uv(rc.slot),
+									  rc.rotation });
+		}
+	}
+
+	flush_batch(renderer, instance_batch, batch_texture, batch_slot);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	render_context_queue.clear();
+	render_context_queue_needs_sort = false;
+}
+
+void Scene::add_texture_rc(const RenderContext &render_context) {
+	Camera *camera = engine->get_camera();
+	camera_dirty = camera_dirty ||
+		cached_camera_position.x != camera->position.x ||
+		cached_camera_position.y != camera->position.y ||
+		cached_camera_zoom != camera->zoom;
+
+	if (camera_dirty) {
+		float view_width = camera->get_width();
+		float view_height = camera->get_height();
+		cached_camera_view =
+			get_camera_view(camera->position.x, camera->position.y, camera->zoom,
+				view_width, view_height);
+		cached_camera_position = camera->position;
+		cached_camera_zoom = camera->zoom;
+		camera_dirty = false;
+	}
+
+	Rect object_aabb = compute_object_aabb_fast(render_context);
+
+	if (!render_context.is_ui && !intersects(cached_camera_view, object_aabb)) {
+		return;
+	}
+
+	if (!render_context_queue.empty()) {
+		const RenderContext &last = render_context_queue.back();
+		if (last.render_type == RT_TEXTURE) {
+			render_context_queue_needs_sort =
+				render_context_queue_needs_sort ||
+				last.position.z > render_context.position.z ||
+				(last.position.z == render_context.position.z &&
+					(last.frame_buffer !=
+						render_context.frame_buffer ||
+						last.shader != render_context.shader ||
+						last.texture != render_context.texture ||
+						last.slot != render_context.slot));
+		}
+	}
+
+	render_context_queue.push_back(render_context);
+}
+
+void Scene::add_clear_rc(const RenderContext &render_context) {
+	render_context_queue.push_back(render_context);
 }
 
 void Scene::add_render_context(const RenderContext &render_context) {
-        static Rect cached_camera_view;
+	switch (render_context.render_type) {
+	case RT_TEXTURE:
+		add_texture_rc(render_context);
+		break;
 
-        Camera *camera = engine->get_camera();
-        bool camera_dirty = camera->is_dirty();
+	case RT_CLEAR:
+		add_clear_rc(render_context);
+		break;
 
-        if (camera_dirty) {
-                cached_camera_view =
-                    get_camera_view(camera->position.x, camera->position.y,
-                                    camera->get_width(), camera->get_height());
-        }
+	case RT_SHAPE:
+		render_context_queue.push_back(render_context);
+		break;
 
-        Rect object_aabb = compute_object_aabb_fast(render_context);
+	case RT_FRAMEBUFFER:
+		render_context_queue.push_back(render_context);
+		break;
 
-        if (!intersects(cached_camera_view, object_aabb)) {
-                return;
-        }
-
-        render_context_queue.push_back(render_context);
+	case RT_MESH:
+		render_context_queue.push_back(render_context);
+		break;
+	}
 }
 
 void Scene::start_frame() { camera_dirty = true; }
