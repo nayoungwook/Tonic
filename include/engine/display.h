@@ -16,6 +16,8 @@ class Display {
 
         void update_viewport(int win_width, int win_height);
         void apply_screen_viewport();
+        static void apply_current_screen_viewport();
+        static Display *get_current();
         void set_fullscreen();
         void set_windowed(int width, int height);
         void start();

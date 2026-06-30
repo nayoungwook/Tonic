@@ -201,7 +201,13 @@ void Scene::flush_render_context() {
 		Shader *shader = rc.shader;
 		FrameBuffer *framebuffer = rc.framebuffer;
 
-		bool pixel_perfect = (framebuffer != nullptr && framebuffer->is_pixel_perfect());
+		FrameBuffer *pixel_projection_source = nullptr;
+		if (framebuffer != nullptr) {
+			pixel_projection_source = framebuffer->is_pixel_perfect() ?
+				framebuffer :
+				framebuffer->get_camera_alignment_source();
+		}
+		bool pixel_perfect = pixel_projection_source != nullptr;
 
 		if (!has_view_projection_cache ||
 			view_projection_cache_framebuffer != framebuffer ||
@@ -219,9 +225,9 @@ void Scene::flush_render_context() {
 			if (pixel_perfect) {
 				cached_view_projection =
 					camera->get_pixel_perfect_view_projection(
-						framebuffer->get_pixel_per_unit(),
-						static_cast<float>(framebuffer->get_width()),
-						static_cast<float>(framebuffer->get_height()));
+						pixel_projection_source->get_pixel_per_unit(),
+						static_cast<float>(pixel_projection_source->get_width()),
+						static_cast<float>(pixel_projection_source->get_height()));
 			}
 
 			has_view_projection_cache = true;

@@ -1,5 +1,6 @@
 #include "engine/screen_quad.h"
 
+#include "engine/display.h"
 #include "engine/framebuffer.h"
 
 #include <GL/glew.h>
@@ -42,12 +43,19 @@ void ScreenQuad::init() {
 void ScreenQuad::render(FrameBuffer *framebuffer) {
 	init();
 	if (framebuffer != nullptr)
-		framebuffer->bind_texture(0);
+		framebuffer->apply_viewport();
+	else
+		Display::apply_current_screen_viewport();
+
 	glBindVertexArray(vao);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-void ScreenQuad::render_current_viewport() { render(nullptr); }
+void ScreenQuad::render_current_viewport() {
+	init();
+	glBindVertexArray(vao);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+}
 
 void ScreenQuad::dispose() {
 	if (ebo != 0)

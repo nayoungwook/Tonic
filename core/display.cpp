@@ -6,6 +6,10 @@
 
 #include <algorithm>
 
+namespace {
+	Display *current_display = nullptr;
+}
+
 Display::Display(const std::string &title, int width, int height)
 	: title(title), width(width), height(height) {
 	window = SDL_CreateWindow(title.c_str(), width, height,
@@ -27,10 +31,13 @@ Display::Display(const std::string &title, int width, int height)
 		error("GLEW Init Failed");
 	}
 
+	current_display = this;
 	update_viewport(width, height);
 }
 
 Display::~Display() {
+	if (current_display == this)
+		current_display = nullptr;
 	if (gl_context != nullptr)
 		SDL_GL_DestroyContext(gl_context);
 	if (window != nullptr)
@@ -80,6 +87,13 @@ void Display::apply_screen_viewport() {
 	glViewport(viewport_x, viewport_y, viewport_width, viewport_height);
 	FrameBuffer::invalidate_bind_cache();
 }
+
+void Display::apply_current_screen_viewport() {
+	if (current_display != nullptr)
+		current_display->apply_screen_viewport();
+}
+
+Display *Display::get_current() { return current_display; }
 
 void Display::set_fullscreen() {
 	SDL_SetWindowFullscreen(window, true);

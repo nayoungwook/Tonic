@@ -121,6 +121,14 @@ float FrameBuffer::get_pixel_per_unit() {
 
 bool FrameBuffer::is_pixel_perfect() const { return pixel_perfect; }
 
+void FrameBuffer::set_camera_alignment_source(FrameBuffer *source) {
+	camera_alignment_source = source;
+}
+
+FrameBuffer *FrameBuffer::get_camera_alignment_source() const {
+	return camera_alignment_source;
+}
+
 FrameBuffer::~FrameBuffer() {
 	unregister_dynamic();
 	dispose();
@@ -202,6 +210,8 @@ void FrameBuffer::bind() {
 	set_viewport(width, height);
 }
 
+void FrameBuffer::apply_viewport() const { set_viewport(width, height); }
+
 void FrameBuffer::unbind() { bind_screen_framebuffer(); }
 
 void FrameBuffer::bind_screen_framebuffer() { bind_fbo(0); }
@@ -273,16 +283,26 @@ void FrameBuffer::update_resolution_from_mode(Camera *camera) {
 		static_cast<double>(reference_height) / units_per_pixel,
 		max_pixel_view_size);
 
-	float zoom = camera == nullptr ? 1.0f : std::max(0.01f,
-		std::abs(camera->zoom));
-	double visible_diameter =
-		std::hypot(static_cast<double>(pixel_view_width),
-			static_cast<double>(pixel_view_height)) / zoom;
+	float zoom = camera == nullptr ? 1.0f :
+		std::max(0.0001f, std::abs(camera->zoom));
+	float cosine = camera == nullptr ? 1.0f :
+		std::abs(std::cos(camera->rotation));
+	float sine = camera == nullptr ? 0.0f :
+		std::abs(std::sin(camera->rotation));
 
-	width = std::min(max_size, std::max(pixel_view_width + 2,
-		ceil_to_clamped_size(visible_diameter + 2.0, max_size)));
-	height = std::min(max_size, std::max(pixel_view_height + 2,
-		ceil_to_clamped_size(visible_diameter + 2.0, max_size)));
+	double visible_width =
+		(cosine * pixel_view_width + sine * pixel_view_height) / zoom;
+	double visible_height =
+		(sine * pixel_view_width + cosine * pixel_view_height) / zoom;
+
+	width = ceil_to_clamped_size(
+		std::max(static_cast<double>(pixel_view_width) + 2.0,
+			visible_width + 2.0),
+		max_size);
+	height = ceil_to_clamped_size(
+		std::max(static_cast<double>(pixel_view_height) + 2.0,
+			visible_height + 2.0),
+		max_size);
 }
 
 void FrameBuffer::register_dynamic() {

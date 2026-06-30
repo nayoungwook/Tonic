@@ -21,6 +21,7 @@ public:
 	~FrameBuffer();
 
 	void bind();
+	void apply_viewport() const;
 	void unbind();
 	static void bind_screen_framebuffer();
 	static void invalidate_bind_cache();
@@ -45,6 +46,8 @@ public:
 	float get_pixel_per_unit();
 
 	bool is_pixel_perfect() const;
+	void set_camera_alignment_source(FrameBuffer *source);
+	FrameBuffer *get_camera_alignment_source() const;
 
 	static void resize_camera_sized_framebuffers();
 	static void resize_camera_sized_framebuffers(Camera *camera);
@@ -71,4 +74,5 @@ private:
 	bool disposed = false;
 	SizeMode size_mode = SizeMode::FIXED;
 	bool dynamic_registered = false;
+	FrameBuffer *camera_alignment_source = nullptr;
 };
