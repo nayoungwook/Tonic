@@ -49,6 +49,7 @@ file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
     renderer/*.cpp
     util/*.cpp
     ui/*.cpp
+    model/*.cpp
 )
 
 file(GLOB TEST_SOURCES CONFIGURE_DEPENDS
@@ -86,6 +87,7 @@ target_include_directories(${GAME_NAME}
         ${CMAKE_CURRENT_SOURCE_DIR}/renderer
         ${CMAKE_CURRENT_SOURCE_DIR}/util
         ${CMAKE_CURRENT_SOURCE_DIR}/ui
+        ${CMAKE_CURRENT_SOURCE_DIR}/model
 )
 
 # ==========================================================

@@ -13,7 +13,7 @@
 
 namespace {
 	bool z_order_less(const RenderContext &a, const RenderContext &b) {
-		return a.position.z < b.position.z;
+		return a.z_order < b.z_order;
 	}
 
 	bool same_texture_batch(const RenderContext &first, const RenderContext &next) {
@@ -23,6 +23,7 @@ namespace {
 				 first.mask_rect.y == next.mask_rect.y &&
 				 first.mask_rect.z == next.mask_rect.z &&
 				 first.mask_rect.w == next.mask_rect.w));
+		
 		return first.render_type == RT_TEXTURE && next.render_type == RT_TEXTURE &&
 			!first.uniform_state && !next.uniform_state &&
 			first.texture == next.texture && first.shader == next.shader &&
@@ -103,7 +104,6 @@ bool Scene::is_visible(const RenderContext &context) const {
 			units * 0.5f;
 		culling_center_x = std::floor(camera->position.x / units) * units;
 		culling_center_y = std::floor(camera->position.y / units) * units;
-		// Include one source texel because resolve samples around texel centres.
 		safety_margin = units;
 	}
 
@@ -117,10 +117,6 @@ bool Scene::is_visible(const RenderContext &context) const {
 }
 
 void Scene::add_render_context(const RenderContext &context) {
-	// Keep the most recent submission attempt even when it is culled. Effects
-	// such as bloom duplicate the draw that was just submitted; falling back to
-	// render_context_queue.back() would duplicate an unrelated visible object
-	// whenever the intended source happened to be outside the camera.
 	last_render_context = context;
 	has_last_render_context = true;
 
@@ -128,7 +124,7 @@ void Scene::add_render_context(const RenderContext &context) {
 		if (context.render_type != RT_CLEAR &&
 			!render_context_queue.empty() &&
 			render_context_queue.back().render_type != RT_CLEAR &&
-			render_context_queue.back().position.z > context.position.z) {
+			render_context_queue.back().z_order > context.z_order) {
 			render_context_queue_sorted = false;
 		}
 
@@ -152,12 +148,12 @@ glm::mat4 Scene::view_projection_for(const RenderContext &context) const {
 }
 
 void Scene::flush_batch(Renderer *renderer,
-	std::vector<TextureInstance> &batch, Texture *texture) {
+	std::vector<SpriteInstance> &batch, Texture *texture) {
 
 	if (batch.empty() || texture == nullptr)
 		return;
 
-	texture->render_instanced(renderer, batch.data(),
+	renderer->draw_sprite_batch(texture, batch.data(),
 		static_cast<int>(batch.size()));
 	batch.clear();
 }
@@ -225,11 +221,11 @@ void Scene::render_queue(std::vector<RenderContext> &queue, bool needs_sort,
 
 			if (context.uniform_state) {
 				upload_uniform_map(context.shader, context.uniform_state->values);
-				TextureInstance instance{
+				SpriteInstance instance{
 					{context.position.x, context.position.y, context.width, context.height},
 					context.color, context.texture->get_atlas_uv(context.slot),
-					context.rotation };
-				context.texture->render_instanced(renderer, &instance, 1);
+					context.rotation.z, context.position.z };
+				renderer->draw_sprite_batch(context.texture, &instance, 1);
 				upload_uniform_map(context.shader,
 					context.uniform_state->reset_values);
 				++index;
@@ -249,7 +245,7 @@ void Scene::render_queue(std::vector<RenderContext> &queue, bool needs_sort,
 				instance_batch[i - index] = {
 					{item.position.x, item.position.y, item.width, item.height},
 					item.color, item.texture->get_atlas_uv(item.slot),
-					item.rotation };
+					item.rotation.z, item.position.z };
 			}
 
 			flush_batch(renderer, instance_batch, context.texture);

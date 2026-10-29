@@ -75,6 +75,9 @@ public:
 	Mesh *mesh;
 	Shader *shader;
 	Vector position;
+	Vector scale = Vector(1.0f, 1.0f, 1.0f);
+
+	int z_order;
 
 	Color color;
 	glm::vec4 uv;
@@ -84,7 +87,7 @@ public:
 	float width, height;
 	float source_width, source_height;
 	float pixel_output_width, pixel_output_height;
-	float rotation;
+	Vector rotation = Vector(0.0f, 0.0f, 0.0f); // XYZ angles in radians.
 	int blend_source;
 	int blend_destination;
 	bool is_ui;
@@ -102,16 +105,22 @@ RenderContext gen_render_context(FrameBuffer *framebuffer, Texture *texture,
 	Shader *shader, const Vector &position, int slot,
 	float rotation, float width, float height,
 	const Color &color = Color::white(),
-	bool is_ui = false);
+	bool is_ui = false, int z_order = 0);
 RenderContext gen_clear_render_context(FrameBuffer *framebuffer);
 RenderContext gen_shape_render_context(FrameBuffer *framebuffer,
 	ShapeType shape_type, const Vector &position, float rotation,
 	float width, float height, const Color &color,
-	bool is_ui = false);
+	bool is_ui = false, int z_order = 0);
 RenderContext gen_framebuffer_render_context(FrameBuffer *target_framebuffer,
 	FrameBuffer *source_framebuffer, const Vector &position, float rotation,
 	float width, float height, const Color &color,
-	bool is_ui = false);
+	bool is_ui = false, int z_order = 0);
 RenderContext gen_mesh_render_context(FrameBuffer *framebuffer, Mesh *mesh,
 	Shader *shader, const Vector &position, float rotation, float width,
-	float height, const Color &color, bool is_ui = false);
+	float height, const Color &color, bool is_ui = false, int z_order = 0);
+RenderContext gen_mesh_render_context(FrameBuffer *framebuffer, Mesh *mesh,
+	Shader *shader, const Vector &position, float rotation, const Vector &scale,
+	const Color &color, bool is_ui = false, int z_order = 0);
+RenderContext gen_mesh_render_context(FrameBuffer *framebuffer, Mesh *mesh,
+	Shader *shader, const Vector &position, const Vector &rotation, const Vector &scale,
+	const Color &color, bool is_ui = false, int z_order = 0);

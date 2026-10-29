@@ -18,8 +18,8 @@ GameObject::GameObject(Engine *engine, const Vector &position, float width,
 	// GameObject is a convenience wrapper that turns object state into a
 	// RenderContext; the Scene still owns the actual draw ordering.
 	this->init();
-
-	this->position.z = 1;
+	
+	this->z_order = 1;
 	this->slot = 0;
 	this->texture = nullptr;
 	this->shader = nullptr;
@@ -85,12 +85,14 @@ void GameObject::render_to_framebuffer(FrameBuffer *framebuffer,
 			error("GameObject has no texture or mesh");
 			return;
 		}
+
 		rc = gen_render_context(framebuffer,
 			this->texture, render_shader, render_position, this->slot,
 			model_rotation, render_width, render_height,
 			Color(1.0f, 1.0f, 1.0f, opacity), ui);
 	}
 
+	rc.z_order = z_order;
 	rc.blend_source = source_blend;
 	rc.blend_destination = destination_blend;
 	rc.cullable = true;

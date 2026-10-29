@@ -17,6 +17,7 @@ public:
 	virtual ~GameObject() = default;
 
 	Vector position;
+	int z_order;
 	Vector anchor = Vector(0.5f, 0.5f);
 	float width, height;
 	float rotation = 0.0f;

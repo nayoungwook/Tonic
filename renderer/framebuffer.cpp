@@ -87,15 +87,10 @@ void FrameBuffer::initialize() {
 }
 
 void FrameBuffer::allocate_storage() {
-	// Nearest filtering preserves pixel-art edges when this texture is sampled
-	// later by presentation or custom composition shaders.
 	glBindTexture(GL_TEXTURE_2D, color_texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
 		GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-	// Framebuffers are also used as intermediate and final presentation
-	// surfaces by pixel-art games. Linear filtering here blurs an otherwise
-	// pixel-perfect render when a non-resolving composition buffer is sampled.
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

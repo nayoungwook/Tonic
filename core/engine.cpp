@@ -14,7 +14,7 @@
 #include <algorithm>
 #include <utility>
 
-void Engine::init_engine(const std::string& title, int width, int height) {
+void Engine::init_engine(const std::string &title, int width, int height) {
 	// Engine startup wires the long-lived subsystems together in dependency
 	// order: SDL/GL, camera/display, input, shaders, then renderer.
 	if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -29,27 +29,29 @@ void Engine::init_engine(const std::string& title, int width, int height) {
 	this->width = width;
 	this->height = height;
 
-	Camera* camera = new Camera((float)width, (float)height);
-	Display* display = new Display(title, width, height);
+	Camera *camera = new Camera((float)width, (float)height);
+	Display *display = new Display(title, width, height);
 	display->set_camera(camera);
 	display->update_viewport(width, height);
-	Input* input = new Input();
+	Input *input = new Input();
 
-	ShaderManager* shader_manager = new ShaderManager();
+	ShaderManager *shader_manager = new ShaderManager();
 
-	Shader* sprite_shader =
+	Shader *sprite_shader =
 		new Shader("engine_shaders/sprite.vert", "engine_shaders/sprite.frag");
-	Shader* plain_shape_shader =
+	Shader *plain_shape_shader =
 		new Shader("engine_shaders/default.vert", "engine_shaders/default.frag");
-	Shader* shape_shader = new Shader("engine_shaders/shape.vert", "engine_shaders/shape.frag");
-	Shader* quad_shader = new Shader("engine_shaders/framebuffer.vert", "engine_shaders/framebuffer.frag");
+	Shader *shape_shader = new Shader("engine_shaders/shape.vert", "engine_shaders/shape.frag");
+	Shader *quad_shader = new Shader("engine_shaders/framebuffer.vert", "engine_shaders/framebuffer.frag");
+	Shader *model_shader = new Shader("engine_shaders/model.vert", "engine_shaders/model.frag");
 
 	shader_manager->fetch_shader("sprite", sprite_shader);
 	shader_manager->fetch_shader("default", plain_shape_shader);
 	shader_manager->fetch_shader("shape", shape_shader);
 	shader_manager->fetch_shader("quad", quad_shader);
+	shader_manager->fetch_shader("model", model_shader);
 
-	Renderer* renderer = new Renderer(
+	Renderer *renderer = new Renderer(
 		this, camera, shader_manager->get_shader("sprite"));
 
 	this->current_framebuffer = nullptr;
@@ -64,11 +66,11 @@ float Engine::get_width() { return width; }
 
 float Engine::get_height() { return height; }
 
-Input* Engine::get_input() { return input; }
+Input *Engine::get_input() { return input; }
 
-Scene* Engine::get_current_scene() { return current_scene; }
+Scene *Engine::get_current_scene() { return current_scene; }
 
-void Engine::set_scene(Scene* scene) {
+void Engine::set_scene(Scene *scene) {
 	// A scene becomes active immediately and gets its init hook before the
 	// first frame so it can allocate resources and framebuffers.
 	this->current_scene = scene;
@@ -79,9 +81,9 @@ void Engine::set_after_scene_update(std::function<void(Engine *)> callback) {
 	after_scene_update = std::move(callback);
 }
 
-FrameBuffer* Engine::get_framebuffer() { return current_framebuffer; }
+FrameBuffer *Engine::get_framebuffer() { return current_framebuffer; }
 
-void Engine::set_framebuffer(FrameBuffer* framebuffer) {
+void Engine::set_framebuffer(FrameBuffer *framebuffer) {
 	this->current_framebuffer = framebuffer;
 }
 
@@ -194,13 +196,12 @@ void Engine::start() {
 	}
 }
 
-ShaderManager* Engine::get_shader_manager() { return this->shader_manager; }
+ShaderManager *Engine::get_shader_manager() { return this->shader_manager; }
 
-Renderer* Engine::get_renderer() { return this->renderer; }
+Renderer *Engine::get_renderer() { return this->renderer; }
 
-Camera* Engine::get_camera() { return this->camera; }
+Camera *Engine::get_camera() { return this->camera; }
 
-Display* Engine::get_display() {
+Display *Engine::get_display() {
 	return this->display;
-	;
 }

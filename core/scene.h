@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render_context.h"
-#include "texture.h"
+#include "sprite_batch.h"
 #include <vector>
 
 class Engine;
@@ -30,13 +30,13 @@ protected:
 private:
 	void render_queue(std::vector<RenderContext> &queue, bool needs_sort,
 		bool separate_alpha_blending);
-	void flush_batch(Renderer *renderer, std::vector<TextureInstance> &batch,
+	void flush_batch(Renderer *renderer, std::vector<SpriteInstance> &batch,
 		Texture *texture);
 	glm::mat4 view_projection_for(const RenderContext &context) const;
 	bool is_visible(const RenderContext &context) const;
 
 	std::vector<RenderContext> render_context_queue;
-	std::vector<TextureInstance> instance_batch;
+	std::vector<SpriteInstance> instance_batch;
 	RenderContext last_render_context = {};
 	bool has_last_render_context = false;
 	bool render_context_queue_sorted = true;

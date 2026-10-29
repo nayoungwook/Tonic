@@ -24,3 +24,4 @@ std::string current_working_directory();
 std::string join_path(const std::string &base, const std::string &path);
 std::string parent_path(const std::string &path);
 std::string file_name(const std::string &path);
+std::string resolve_resource_path(const std::string &path);

@@ -3,13 +3,21 @@
 #include "mathf.h"
 #include <glm/glm.hpp>
 
+enum class CameraMode {
+	VIEW_2D,
+	VIEW_3D,
+};
+
 class Camera {
 public:
 	explicit Camera(int width, int height);
 
+	CameraMode camera_mode = CameraMode::VIEW_2D;
+
 	Vector position;
 	float zoom = 1.0f;
 	float rotation = 0.0f;
+	Vector rotational_vector;
 
 	void adjust_projection(float resolution_x, float resolution_y);
 	void reset_projection_to_base();
@@ -44,6 +52,10 @@ private:
 	glm::mat4 view_projection{ 1.0f };
 
 	Vector cached_position;
+	Vector cached_rotational_vector;
+
+	float fov;
+
 	float cached_zoom = 0.0f;
 	float cached_rotation = 0.0f;
 	bool matrices_dirty = true;

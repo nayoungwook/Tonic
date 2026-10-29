@@ -2,6 +2,7 @@
 #include "error.h"
 
 #include <cctype>
+#include <array>
 
 namespace {
 	bool is_separator(char value) {
@@ -74,6 +75,40 @@ std::string file_name(const std::string &path) {
 		return std::string();
 	size_t separator = path.find_last_of("/\\");
 	return separator == std::string::npos ? path : path.substr(separator + 1);
+}
+
+std::string resolve_resource_path(const std::string &path) {
+	if (is_absolute_path(path) && file_exists(path))
+		return path;
+
+	std::string cwd = current_working_directory();
+	std::array<std::string, 4> candidates = {
+		join_path(cwd, path),
+		join_path(join_path(cwd, "resources"), path),
+#ifdef ENGINE_RESOURCE_ROOT
+		join_path(ENGINE_RESOURCE_ROOT, path),
+#else
+		std::string(),
+#endif
+		join_path("resources", path),
+	};
+
+	for (const auto &candidate : candidates) {
+		if (!candidate.empty() && file_exists(candidate))
+			return candidate;
+	}
+
+	for (std::string probe = cwd; !probe.empty();) {
+		std::string candidate = join_path(join_path(probe, "resources"), path);
+		if (file_exists(candidate))
+			return candidate;
+		std::string parent = parent_path(probe);
+		if (probe == parent)
+			break;
+		probe = parent;
+	}
+
+	return join_path(cwd, path);
 }
 
 std::string read_file(const std::string &path) {

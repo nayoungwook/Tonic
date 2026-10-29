@@ -9,6 +9,8 @@
 #include "shader.h"
 #include "texture.h"
 #include "ttfont.h"
+#include "sprite_batch.h"
+#include "model.h"
 
 #include <GL/glew.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -22,6 +24,7 @@ Renderer::Renderer(Engine *engine, Camera *camera, Shader *shader)
 	// texture for primitives, shape shader, framebuffer shader, and quad VAO.
 	unsigned char white[] = { 255, 255, 255, 255 };
 	white_texture = new Texture(1, 1, white);
+	sprite_batch.reset(new SpriteBatch());
 	init_quad();
 }
 
@@ -36,6 +39,11 @@ Renderer::~Renderer() {
 }
 
 void Renderer::set_shader(Shader *shader) { this->shader = shader; }
+
+void Renderer::draw_sprite_batch(Texture *texture,
+	const SpriteInstance *instances, int count) {
+	sprite_batch->draw(texture, shader, instances, count);
+}
 
 void Renderer::set_sprite_matrices(const glm::mat4 &view,
 	const glm::mat4 &projection) {
@@ -101,7 +109,7 @@ void Renderer::render_texture(Texture *texture,
 
 void Renderer::render_texture(Texture *texture, Shader *shader,
 	const Vector &position, float width, float height, float rotation,
-	const Color &color, int atlas_slot, bool is_ui) {
+	const Color &color, int atlas_slot, bool is_ui, int z_order) {
 	// Public draw calls do not render immediately. They enqueue a command so
 	// Scene can sort by z and batch compatible sprites later in the frame.
 	if (texture == nullptr || shader == nullptr)
@@ -110,7 +118,7 @@ void Renderer::render_texture(Texture *texture, Shader *shader,
 
 	RenderContext rc = gen_render_context(framebuffer, texture, shader,
 		position, atlas_slot, -rotation, width, height,
-		color, is_ui);
+		color, is_ui, z_order);
 	apply_ui_mask(rc, is_ui);
 	engine->get_current_scene()->add_render_context(rc);
 }
@@ -124,11 +132,11 @@ void Renderer::render_image(Texture *texture, const Vector &position,
 }
 
 void Renderer::render_image(Texture *texture, const Vector &position,
-	float width, float height, float rotation) {
+	float width, float height, float rotation, int z_order) {
 	Shader *current = Shader::get_current();
 	render_texture(texture, current == nullptr ? default_shader : current,
 		position, width, height, rotation, Color::white(),
-		texture == nullptr ? -1 : texture->get_atlas_slot(), false);
+		texture == nullptr ? -1 : texture->get_atlas_slot(), false, z_order);
 }
 
 void Renderer::render_ui_image(Texture *texture, const Vector &position,
@@ -140,25 +148,25 @@ void Renderer::render_ui_image(Texture *texture, const Vector &position,
 }
 
 void Renderer::render_ui_image(Texture *texture, const Vector &position,
-	float width, float height, const Color &color) {
+	float width, float height, const Color &color, int z_order) {
 	Shader *current = Shader::get_current();
 	render_texture(texture, current == nullptr ? default_shader : current,
 		position, width, height, 0.0f, color,
-		texture == nullptr ? -1 : texture->get_atlas_slot(), true);
+		texture == nullptr ? -1 : texture->get_atlas_slot(), true, z_order);
 }
 
 void Renderer::render_ui_image(Texture *texture, const Vector &position,
-	float width, float height, float rotation) {
+	float width, float height, float rotation, int z_order) {
 	Shader *current = Shader::get_current();
 	render_texture(texture, current == nullptr ? default_shader : current,
 		position, width, height, rotation, Color::white(),
-		texture == nullptr ? -1 : texture->get_atlas_slot(), true);
+		texture == nullptr ? -1 : texture->get_atlas_slot(), true, z_order);
 }
 
 void Renderer::queue_shape(ShapeType shape_type, const Vector &position,
-	float width, float height, float rotation, bool is_ui) {
+	float width, float height, float rotation, bool is_ui, int z_order) {
 	RenderContext rc = gen_shape_render_context(engine->get_framebuffer(),
-		shape_type, position, -rotation, width, height, color, is_ui);
+		shape_type, position, -rotation, width, height, color, is_ui, z_order);
 	apply_ui_mask(rc, is_ui);
 	engine->get_current_scene()->add_render_context(rc);
 }
@@ -168,8 +176,8 @@ void Renderer::render_rect(const Vector &position, float width, float height) {
 }
 
 void Renderer::render_rect(const Vector &position, float width, float height,
-	float rotation) {
-	queue_shape(SHAPE_RECT, position, width, height, rotation, false);
+	float rotation, int z_order) {
+	queue_shape(SHAPE_RECT, position, width, height, rotation, false, z_order);
 }
 
 void Renderer::render_ui_rect(const Vector &position, float width,
@@ -178,8 +186,8 @@ void Renderer::render_ui_rect(const Vector &position, float width,
 }
 
 void Renderer::render_ui_rect(const Vector &position, float width,
-	float height, float rotation) {
-	queue_shape(SHAPE_RECT, position, width, height, rotation, true);
+	float height, float rotation, int z_order) {
+	queue_shape(SHAPE_RECT, position, width, height, rotation, true, z_order);
 }
 
 void Renderer::render_oval(const Vector &position, float width, float height) {
@@ -187,8 +195,8 @@ void Renderer::render_oval(const Vector &position, float width, float height) {
 }
 
 void Renderer::render_oval(const Vector &position, float width, float height,
-	float rotation) {
-	queue_shape(SHAPE_OVAL, position, width, height, rotation, false);
+	float rotation, int z_order) {
+	queue_shape(SHAPE_OVAL, position, width, height, rotation, false, z_order);
 }
 
 void Renderer::render_ui_oval(const Vector &position, float width,
@@ -197,8 +205,8 @@ void Renderer::render_ui_oval(const Vector &position, float width,
 }
 
 void Renderer::render_ui_oval(const Vector &position, float width,
-	float height, float rotation) {
-	queue_shape(SHAPE_OVAL, position, width, height, rotation, true);
+	float height, float rotation, int z_order) {
+	queue_shape(SHAPE_OVAL, position, width, height, rotation, true, z_order);
 }
 
 void Renderer::render_framebuffer(FrameBuffer *source, const Vector &position,
@@ -207,9 +215,9 @@ void Renderer::render_framebuffer(FrameBuffer *source, const Vector &position,
 }
 
 void Renderer::render_framebuffer(FrameBuffer *source, const Vector &position,
-	float width, float height, float rotation) {
+	float width, float height, float rotation, int z_order) {
 	render_framebuffer_part(source, position, width, height, rotation,
-		glm::vec4(0.0f, 0.0f, 1.0f, 1.0f), false);
+		glm::vec4(0.0f, 0.0f, 1.0f, 1.0f), false, z_order);
 }
 
 void Renderer::render_ui_framebuffer(FrameBuffer *source, const Vector &position,
@@ -219,24 +227,24 @@ void Renderer::render_ui_framebuffer(FrameBuffer *source, const Vector &position
 }
 
 void Renderer::render_ui_framebuffer(FrameBuffer *source, const Vector &position,
-	float width, float height, float rotation) {
+	float width, float height, float rotation, int z_order) {
 	render_framebuffer_part(source, position, width, height, rotation,
-		glm::vec4(0.0f, 0.0f, 1.0f, 1.0f), true);
+		glm::vec4(0.0f, 0.0f, 1.0f, 1.0f), true, z_order);
 }
 
 void Renderer::render_framebuffer_part(FrameBuffer *source,
 	const Vector &position, float width, float height, const glm::vec4 &uv,
-	bool is_ui) {
-	render_framebuffer_part(source, position, width, height, 0.0f, uv, is_ui);
+	bool is_ui, int z_order) {
+	render_framebuffer_part(source, position, width, height, 0.0f, uv, is_ui, z_order);
 }
 
 void Renderer::render_framebuffer_part(FrameBuffer *source,
 	const Vector &position, float width, float height, float rotation,
-	const glm::vec4 &uv, bool is_ui) {
+	const glm::vec4 &uv, bool is_ui, int z_order) {
 	if (source == nullptr)
 		return;
 	RenderContext rc = gen_framebuffer_render_context(engine->get_framebuffer(),
-		source, position, -rotation, width, height, color, is_ui);
+		source, position, -rotation, width, height, color, is_ui, z_order);
 	rc.uv = uv;
 	apply_ui_mask(rc, is_ui);
 	engine->get_current_scene()->add_render_context(rc);
@@ -248,11 +256,22 @@ void Renderer::render_mesh(Mesh *mesh, Shader *shader, const Vector &position,
 }
 
 void Renderer::render_mesh(Mesh *mesh, Shader *shader, const Vector &position,
-	float width, float height, float rotation) {
+	float width, float height, float rotation, int z_order) {
+	render_mesh(mesh, shader, position, Vector(width, height, 1.0f), rotation, z_order);
+}
+
+void Renderer::render_mesh(Mesh *mesh, Shader *shader, const Vector &position,
+	const Vector &scale, float rotation, int z_order) {
+	render_mesh(mesh, shader, position, scale, Vector(0.0f, 0.0f, rotation), z_order);
+}
+
+void Renderer::render_mesh(Mesh *mesh, Shader *shader, const Vector &position,
+	const Vector &scale, const Vector &rotation, int z_order) {
 	if (mesh == nullptr || shader == nullptr)
 		return;
 	RenderContext rc = gen_mesh_render_context(engine->get_framebuffer(), mesh,
-		shader, position, -rotation, width, height, color, false);
+		shader, position, Vector(-rotation.x, -rotation.y, -rotation.z),
+		scale, color, false, z_order);
 	engine->get_current_scene()->add_render_context(rc);
 }
 
@@ -262,18 +281,30 @@ void Renderer::render_ui_mesh(Mesh *mesh, Shader *shader,
 }
 
 void Renderer::render_ui_mesh(Mesh *mesh, Shader *shader,
-	const Vector &position, float width, float height, float rotation) {
+	const Vector &position, float width, float height, float rotation, int z_order) {
+	render_ui_mesh(mesh, shader, position, Vector(width, height, 1.0f), rotation, z_order);
+}
+
+void Renderer::render_ui_mesh(Mesh *mesh, Shader *shader,
+	const Vector &position, const Vector &scale, float rotation, int z_order) {
+	render_ui_mesh(mesh, shader, position, scale, Vector(0.0f, 0.0f, rotation), z_order);
+}
+
+void Renderer::render_ui_mesh(Mesh *mesh, Shader *shader,
+	const Vector &position, const Vector &scale, const Vector &rotation, int z_order) {
 	if (mesh == nullptr || shader == nullptr)
 		return;
 	RenderContext rc = gen_mesh_render_context(engine->get_framebuffer(), mesh,
-		shader, position, -rotation, width, height, color, true);
+		shader, position, Vector(-rotation.x, -rotation.y, -rotation.z),
+		scale, color, true, z_order);
 	apply_ui_mask(rc, true);
 	engine->get_current_scene()->add_render_context(rc);
 }
 
 void Renderer::queue_font(TTFont *font, const std::string &text,
 	const Vector &position, const std::string &align,
-	const Color &outline_color, float outline_width, float rotation, bool is_ui) {
+	const Color &outline_color, float outline_width, float rotation, bool is_ui,
+	int z_order) {
 	if (font == nullptr || text.empty())
 		return;
 
@@ -293,69 +324,65 @@ void Renderer::queue_font(TTFont *font, const std::string &text,
 	Shader *current = Shader::get_current();
 	render_texture(texture, current == nullptr ? default_shader : current,
 		render_position, width, height, rotation,
-		Color::white(), -1, is_ui);
+		Color::white(), -1, is_ui, z_order);
 }
 
 void Renderer::render_font(TTFont *font, const std::string &text,
-	const Vector &position, const std::string &align) {
+	const Vector &position, const std::string &align, int z_order) {
 	queue_font(font, text, position, align,
 		Color::transparent(),
-		0.0f, 0.0f, false);
+		0.0f, 0.0f, false, z_order);
 }
 
 void Renderer::render_font(TTFont *font, const std::string &text,
-	const Vector &position, float rotation) {
+	const Vector &position, float rotation, int z_order) {
 	queue_font(font, text, position, "center",
 		Color::transparent(),
-		0.0f, rotation, false);
+		0.0f, rotation, false, z_order);
 }
 
 void Renderer::render_font(TTFont *font, const std::string &text,
 	const Vector &position, const std::string &align,
-	const Color &outline_color, float outline_width) {
+	const Color &outline_color, float outline_width, int z_order) {
 	queue_font(font, text, position, align, outline_color, outline_width, 0.0f,
-		false);
+		false, z_order);
 }
 
 void Renderer::render_font(TTFont *font, const std::string &text,
 	const Vector &position, float rotation, const std::string &align,
-	const Color &outline_color, float outline_width) {
+	const Color &outline_color, float outline_width, int z_order) {
 	queue_font(font, text, position, align, outline_color, outline_width, rotation,
-		false);
+		false, z_order);
 }
 void Renderer::render_ui_font(TTFont *font, const std::string &text,
-	const Vector &position, const std::string &align) {
+	const Vector &position, const std::string &align, int z_order) {
 	queue_font(font, text, position, align, Color::outline(),
-		0.0f, 0.0f, true);
+		0.0f, 0.0f, true, z_order);
 }
 
 void Renderer::render_ui_font(TTFont *font, const std::string &text,
 	const Vector &position, const std::string &align,
-	const Color &outline_color, float outline_width) {
+	const Color &outline_color, float outline_width, int z_order) {
 	queue_font(font, text, position, align, outline_color, outline_width, 0.0f,
-		true);
+		true, z_order);
 }
 
 void Renderer::render_ui_font(TTFont *font, const std::string &text,
-	const Vector &position, float rotation, const std::string &align) {
+	const Vector &position, float rotation, const std::string &align, int z_order) {
 	queue_font(font, text, position, align,
 		Color::transparent(),
-		0.0f, rotation, true);
+		0.0f, rotation, true, z_order);
 }
 
 void Renderer::render_ui_font(TTFont *font, const std::string &text,
 	const Vector &position, float rotation, const std::string &align,
-	const Color &outline_color, float outline_width) {
+	const Color &outline_color, float outline_width, int z_order) {
 	queue_font(font, text, position, align, outline_color, outline_width, rotation,
-		true);
+		true, z_order);
 }
 
 
 void Renderer::clear() {
-	// Clears are immediate GL work, but first flush queued objects so commands
-	// submitted before the clear really appear before it.
-	// Toffee flushes queued objects before a clear so submission ordering is
-	// preserved even when clear is called in the middle of Scene::render().
 	if (this->engine->get_current_scene() != nullptr)
 		this->engine->get_current_scene()->flush_render_context();
 	FrameBuffer *framebuffer = this->engine->get_framebuffer();
@@ -442,7 +469,7 @@ void Renderer::draw_shape(const RenderContext &rc, const glm::mat4 &vp) {
 	shape_shader->upload_mat4("uViewProjection", vp);
 	shape_shader->upload_vec4("uTransform",
 		glm::vec4(rc.position.x, rc.position.y, rc.width, rc.height));
-	shape_shader->upload_float("uRotation", rc.rotation);
+	shape_shader->upload_float("uRotation", rc.rotation.z);
 	shape_shader->upload_color("uColor", rc.color);
 	shape_shader->upload_int("uShapeType", static_cast<int>(rc.shape_type));
 	upload_ui_mask(shape_shader, rc);
@@ -463,7 +490,7 @@ void Renderer::draw_raw_texture(unsigned texture_id, const RenderContext &rc,
 	quad_shader->upload_vec4("uTransform",
 		glm::vec4(rc.position.x, rc.position.y, rc.width, rc.height));
 	quad_shader->upload_vec4("uUv", rc.uv);
-	quad_shader->upload_float("uRotation", rc.rotation);
+	quad_shader->upload_float("uRotation", rc.rotation.z);
 	quad_shader->upload_color("uColor", rc.color);
 	quad_shader->upload_int("uTexture", 0);
 	quad_shader->upload_int("uPixelPerfect", rc.is_pixel_perfect_framebuffer ? 1 : 0);
@@ -483,16 +510,17 @@ void Renderer::draw_raw_texture(unsigned texture_id, const RenderContext &rc,
 }
 
 void Renderer::draw_mesh(const RenderContext &rc, const glm::mat4 &vp) {
-	// Mesh commands use a regular model matrix instead of sprite instancing.
-	// Position, rotation, and size are still stored in RenderContext.
 	if (rc.mesh == nullptr || rc.shader == nullptr)
 		return;
 
 	glm::mat4 model(1.0f);
 	model = glm::translate(model,
 		glm::vec3(rc.position.x, rc.position.y, rc.position.z));
-	model = glm::rotate(model, rc.rotation, glm::vec3(0, 0, 1));
-	model = glm::scale(model, glm::vec3(rc.width, rc.height, 1.0f));
+	// Local vertices are scaled, rotated X -> Y -> Z, then translated.
+	model = glm::rotate(model, rc.rotation.z, glm::vec3(0, 0, 1));
+	model = glm::rotate(model, rc.rotation.y, glm::vec3(0, 1, 0));
+	model = glm::rotate(model, rc.rotation.x, glm::vec3(1, 0, 0));
+	model = glm::scale(model, glm::vec3(rc.scale.x, rc.scale.y, rc.scale.z));
 
 	rc.shader->bind();
 	rc.shader->upload_mat4("uView", glm::mat4(1.0f));

@@ -8,14 +8,19 @@
 
 Camera::Camera(int width, int height) {
 	position = Vector(0.0f, 0.0f, 0.0f);
+	fov = 45.0f;
 	adjust_projection(static_cast<float>(std::max(1, width)),
 		static_cast<float>(std::max(1, height)));
 	calculate_matrix();
+	rotational_vector = Vector(0.0f, 0.0f, 0.0f);
 }
 
 glm::mat4 Camera::build_projection(float width, float height) const {
-	return glm::ortho(width * -0.5f, width * 0.5f,
-		height * -0.5f, height * 0.5f, -100.0f, 100.0f);
+	if (camera_mode == CameraMode::VIEW_2D)
+		return glm::ortho(width * -0.5f, width * 0.5f,
+			height * -0.5f, height * 0.5f, -100.0f, 100.0f);
+
+	return glm::perspective(glm::radians(fov), (float)(width / height), 0.1f, 100.0f);
 }
 
 void Camera::set_projection(float width, float height) {
@@ -71,9 +76,15 @@ glm::vec2 Camera::get_pixel_fraction(float units) const {
 }
 
 bool Camera::is_dirty() const {
-	return matrices_dirty || cached_position.x != position.x ||
-		cached_position.y != position.y || cached_zoom != zoom ||
-		cached_rotation != rotation;
+	bool position_dirty = (cached_position.x != position.x ||
+		cached_position.y != position.y || cached_position.z != position.z);
+	bool rotational_dirty = (
+		cached_rotational_vector.x != rotational_vector.x ||
+		cached_rotational_vector.y != rotational_vector.y ||
+		cached_rotational_vector.z != rotational_vector.z);
+
+	return matrices_dirty || position_dirty || cached_zoom != zoom ||
+		cached_rotation != rotation || rotational_dirty;
 }
 
 void Camera::calculate_matrix() {
@@ -83,7 +94,12 @@ void Camera::calculate_matrix() {
 	view = glm::mat4(1.0f);
 
 	view = glm::scale(view, glm::vec3(zoom, zoom, 1.0f));
+
 	view = glm::rotate(view, rotation, glm::vec3(0.0f, 0.0f, 1.0f));
+	view = glm::rotate(view, rotational_vector.x, glm::vec3(1.0f, 0.0f, 0.0f));
+	view = glm::rotate(view, rotational_vector.y, glm::vec3(0.0f, 1.0f, 0.0f));
+	view = glm::rotate(view, rotational_vector.z, glm::vec3(0.0f, 0.0f, 1.0f));
+
 	view = glm::translate(view,
 		glm::vec3(-position.x, -position.y, 0.0f));
 

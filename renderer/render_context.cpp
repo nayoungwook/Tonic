@@ -12,7 +12,7 @@ RenderContext gen_render_context(FrameBuffer *framebuffer, Texture *texture,
 	Shader *shader, const Vector &position, int slot,
 	float rotation, float width, float height,
 	const Color &color,
-	bool is_ui) {
+	bool is_ui, int z_order) {
 	RenderContext result = {};
 
 	result.framebuffer = framebuffer;
@@ -21,9 +21,10 @@ RenderContext gen_render_context(FrameBuffer *framebuffer, Texture *texture,
 	result.mesh = nullptr;
 	result.shader = shader;
 	result.position = position;
+	result.z_order = z_order;
 	result.color = color;
 	result.uv = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-	result.rotation = rotation;
+	result.rotation = Vector(0.0f, 0.0f, rotation);
 	result.width = width;
 	result.height = height;
 	result.pixel_per_unit = 1.0f;
@@ -54,13 +55,14 @@ RenderContext gen_shape_render_context(FrameBuffer *framebuffer,
 	const Vector &position, float rotation,
 	float width, float height,
 	const Color &color,
-	bool is_ui) {
+	bool is_ui, int z_order) {
 	RenderContext result = {};
 
 	result.render_type = RT_SHAPE;
 	result.framebuffer = framebuffer;
 	result.position = position;
-	result.rotation = rotation;
+	result.z_order = z_order;
+	result.rotation = Vector(0.0f, 0.0f, rotation);
 	result.width = width;
 	result.height = height;
 	result.pixel_per_unit = 1.0f;
@@ -77,7 +79,21 @@ RenderContext gen_mesh_render_context(FrameBuffer *framebuffer, Mesh *mesh,
 	Shader *shader, const Vector &position,
 	float rotation, float width,
 	float height, const Color &color,
-	bool is_ui) {
+	bool is_ui, int z_order) {
+	return gen_mesh_render_context(framebuffer, mesh, shader, position,
+		rotation, Vector(width, height, 1.0f), color, is_ui, z_order);
+}
+
+RenderContext gen_mesh_render_context(FrameBuffer *framebuffer, Mesh *mesh,
+	Shader *shader, const Vector &position, float rotation, const Vector &scale,
+	const Color &color, bool is_ui, int z_order) {
+	return gen_mesh_render_context(framebuffer, mesh, shader, position,
+		Vector(0.0f, 0.0f, rotation), scale, color, is_ui, z_order);
+}
+
+RenderContext gen_mesh_render_context(FrameBuffer *framebuffer, Mesh *mesh,
+	Shader *shader, const Vector &position, const Vector &rotation, const Vector &scale,
+	const Color &color, bool is_ui, int z_order) {
 	RenderContext result = {};
 
 	result.render_type = RT_MESH;
@@ -85,9 +101,11 @@ RenderContext gen_mesh_render_context(FrameBuffer *framebuffer, Mesh *mesh,
 	result.mesh = mesh;
 	result.shader = shader;
 	result.position = position;
+	result.scale = scale;
+	result.z_order = z_order;
 	result.rotation = rotation;
-	result.width = width;
-	result.height = height;
+	result.width = scale.x;
+	result.height = scale.y;
 	result.pixel_per_unit = 1.0f;
 	result.color = color;
 	result.blend_source = GL_SRC_ALPHA;
@@ -103,13 +121,14 @@ RenderContext gen_framebuffer_render_context(FrameBuffer *target_framebuffer,
 	float rotation, float width,
 	float height,
 	const Color &color,
-	bool is_ui) {
+	bool is_ui, int z_order) {
 	RenderContext result = {};
 
 	result.render_type = RT_FRAMEBUFFER;
 	result.framebuffer = target_framebuffer;
 	result.position = position;
-	result.rotation = rotation;
+	result.z_order = z_order;
+	result.rotation = Vector(0.0f, 0.0f, rotation);
 	result.width = width;
 	result.height = height;
 	result.source_width = source_framebuffer == nullptr ? 0.0f : source_framebuffer->get_width();
